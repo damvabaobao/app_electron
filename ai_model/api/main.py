@@ -3,10 +3,9 @@ from typing import List
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from model_service import predict, get_model_info
+from app_electron.ai_model.api.model_service import predict, get_model_info
 
-app = FastAPI(title="ElectroChem AI API", description="API for electrochemical substance prediction using XGBoost.", version="1.0.0",
-)
+app = FastAPI(title="ElectroChem AI API", description="API for electrochemical substance prediction using XGBoost.", version="1.0.0",)
 
 # REQUEST MODEL
 class PredictionRequest(BaseModel):features: List[float] = Field(
@@ -17,15 +16,15 @@ class PredictionRequest(BaseModel):features: List[float] = Field(
 # RESPONSE MODEL
 
 class PredictionResponse(BaseModel):
-     substance: str
-     class_index: int
-     confidence: float
+    substance: str
+    class_index: int
+    confidence: float
 
 # ROOT
 
 @app.get("/")
 def root():
-     return {
+    return {
         "status": "ok",
         "service": "ElectroChem AI API",
         "model": "XGBoost",
