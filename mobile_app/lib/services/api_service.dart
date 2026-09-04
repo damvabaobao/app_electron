@@ -2,29 +2,33 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String baseUrl = 'https://10.0.2.2:8000';
+  static const String baseUrl = 'http://10.0.2.2:8000';
 
   Future<PredictionApiResult> predict(List<double> featureVector) async {
     if (featureVector.length != 15) {
       throw ArgumentError(
-        'Feature vector must have exactly 15 feature.'
+        'Feature vector must have exactly 15 features. '
         'Received: ${featureVector.length}',
       );
     }
 
     final url = Uri.parse('$baseUrl/predict');
+
     final response = await http.post(
       url,
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'features': featureVector}),
     );
+
     if (response.statusCode != 200) {
       throw Exception(
         'Prediction API error: '
         '${response.statusCode} - ${response.body}',
       );
     }
+
     final json = jsonDecode(response.body);
+
     return PredictionApiResult.fromJson(json);
   }
 }
