@@ -1,99 +1,81 @@
 from pathlib import Path
 from typing import List, Dict, Any
-
 import joblib
 import numpy as np
 
 # PATH
 
-
-BASE_DIR = Path(__file__).resolve().parents[2]
-
+BASE_DIR = Path(__file__).resolve().parent.parent
 MODEL_PATH = (BASE_DIR/ "result"/ "model"/ "xgb_15features.pkl")
 ENCODER_PATH = (BASE_DIR/ "result"/ "model"/ "label_encoder.pkl")
-
 # CONSTANT
-EXPECTED_FEATURE_COUNT = 15
 
+EXPECTED_FEATURE_COUNT = 15
 # LOAD MODEL
+
 print("=" * 60)
 print("LOADING XGBOOST MODEL")
 print("=" * 60)
 print("Model path   :", MODEL_PATH)
 print("Encoder path :", ENCODER_PATH)
 
-
 if not MODEL_PATH.exists():
     raise FileNotFoundError(
         f"Không tìm thấy XGBoost model:\n{MODEL_PATH}"
     )
 
+
 if not ENCODER_PATH.exists():
-     raise FileNotFoundError(
+    raise FileNotFoundError(
         f"Không tìm thấy LabelEncoder:\n{ENCODER_PATH}"
     )
-
 
 model = joblib.load(MODEL_PATH)
 encoder = joblib.load(ENCODER_PATH)
 
+
 print("XGBoost model loaded successfully.")
 print("Label encoder loaded successfully.")
 print("Number of classes:", len(encoder.classes_))
-
 print("=" * 60)
-
 # PREDICTION
+
 def predict(feature: List[float]) -> Dict[str, Any]:
-
-        # Check feature count
-
+    # Check feature count
 
     if len(feature) != EXPECTED_FEATURE_COUNT:
         raise ValueError(
             f"Model requires {EXPECTED_FEATURE_COUNT} features, "
             f"but received {len(feature)}."
         )
+    # Convert to numpy
 
-        # Convert to numpy
+    X = np.asarray(feature,dtype=np.float32).reshape(1, -1)
+    # Predict class
 
-
-    X = np.asarray(
-        feature,
-        dtype=np.float32
-    ).reshape(1, -1)
-        # Predict class
-
-
-    predicted_class_index = int(
-        model.predict(X)[0]
-    )
-        # Decode class
-
+    predicted_class_index = int(model.predict(X)[0])
+    # Decode class
 
     predicted_substance = str(
         encoder.inverse_transform(
             [predicted_class_index]
         )[0]
     )
-        # Predict probability
+    # Predict probability
 
     probabilities = model.predict_proba(X)[0]
 
     confidence = float(
         np.max(probabilities)
     )
-        # Return result
-
+    # Return result
 
     return {
         "substance": predicted_substance,
         "class_index": predicted_class_index,
         "confidence": confidence,
     }
-
 # MODEL INFORMATION
-
 
 def get_model_info() -> Dict[str, Any]:
 

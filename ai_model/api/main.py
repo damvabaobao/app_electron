@@ -3,7 +3,7 @@ from typing import List
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from app_electron.ai_model.api.model_service import predict, get_model_info
+from model_service import predict, get_model_info
 
 app = FastAPI(title="ElectroChem AI API", description="API for electrochemical substance prediction using XGBoost.", version="1.0.0",)
 
