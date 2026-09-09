@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../setup/setup_screen.dart';
 
 class StartMeasurementButton extends StatelessWidget {
@@ -7,24 +8,24 @@ class StartMeasurementButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
+      height: 54,
       width: double.infinity,
-      height: 52,
       child: ElevatedButton.icon(
         onPressed: () {
-          // TODO: chuyển sang màn hình Setup
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const SetupScreen()),
           );
         },
-        icon: const Icon(Icons.science),
+        icon: const Icon(Icons.play_arrow, size: 27),
         label: const Text(
           'Bắt đầu phép đo mới',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         style: ElevatedButton.styleFrom(
+          elevation: 2,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(15),
           ),
         ),
       ),

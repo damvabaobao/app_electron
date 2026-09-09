@@ -8,21 +8,34 @@ class DashboardBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BottomNavigationBar(
-      currentIndex: 0,
+    return NavigationBar(
+      selectedIndex: 0,
 
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+      backgroundColor: Colors.white.withValues(alpha: 0.96),
 
-        BottomNavigationBarItem(icon: Icon(Icons.science), label: 'Đo lường'),
+      indicatorColor: const Color(0xFFDCEEFF),
 
-        BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Lịch sử'),
+      destinations: const [
+        NavigationDestination(
+          icon: Icon(Icons.home_outlined),
+          selectedIcon: Icon(Icons.home),
+          label: 'Trang chủ',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.science_outlined),
+          selectedIcon: Icon(Icons.science),
+          label: 'Đo lường',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.history_outlined),
+          selectedIcon: Icon(Icons.history),
+          label: 'Lịch sử',
+        ),
       ],
 
-      onTap: (index) {
+      onDestinationSelected: (index) {
         switch (index) {
           case 0:
-            // Đang ở Dashboard
             break;
 
           case 1:

@@ -6,26 +6,29 @@ class DashboardAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.transparent,
       elevation: 0,
+      surfaceTintColor: Colors.transparent,
+
+      leading: IconButton(
+        icon: const Icon(Icons.menu, color: Color(0xFF064A96)),
+        onPressed: () {},
+      ),
+
+      title: const Text(
+        'ElectroChem AI',
+        style: TextStyle(
+          color: Color(0xFF064A96),
+          fontWeight: FontWeight.bold,
+          fontSize: 20,
+        ),
+      ),
 
       centerTitle: true,
 
-      title: const Text(
-        "ElectroChem AI",
-        style: TextStyle(
-          color: Colors.black,
-          fontWeight: FontWeight.bold,
-          fontSize: 22,
-        ),
-      ),
-      leading: IconButton(
-        icon: const Icon(Icons.menu, color: Colors.black),
-        onPressed: () {},
-      ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.notifications_none, color: Colors.black),
+          icon: const Icon(Icons.notifications_none, color: Color(0xFF064A96)),
           onPressed: () {},
         ),
       ],

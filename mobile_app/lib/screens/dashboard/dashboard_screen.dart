@@ -5,7 +5,6 @@ import 'widgets/dashboard_bottom_nav.dart';
 import 'widgets/pi_status.dart';
 import 'widgets/start_measurement_button.dart';
 
-import '../../widgets/device_status_card.dart';
 import '../../widgets/app_background.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -14,32 +13,42 @@ class DashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
-
+      extendBody: true,
       appBar: const DashboardAppBar(),
 
       body: AppBackground(
         child: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _buildWelcome(),
+                // Logo + tên ứng dụng
+                const _AppHeader(),
 
                 const SizedBox(height: 18),
 
+                // Trạng thái Raspberry Pi / AD5941
                 const PiStatus(),
+
+                const SizedBox(height: 22),
+
+                const Text(
+                  'PHÉP ĐO ĐIỆN HÓA',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                ),
 
                 const SizedBox(height: 14),
 
-                const DeviceStatusCard(),
+                // Các phép đo
+                const _MeasurementGrid(),
 
                 const SizedBox(height: 20),
-
-                _buildMeasurementSection(),
-
-                const SizedBox(height: 12),
 
                 const StartMeasurementButton(),
               ],
@@ -51,90 +60,159 @@ class DashboardScreen extends StatelessWidget {
       bottomNavigationBar: const DashboardBottomNav(),
     );
   }
+}
 
-  Widget _buildWelcome() {
+class _AppHeader extends StatelessWidget {
+  const _AppHeader();
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        Image.asset(
+          'assets/images/hus_logo.jpg',
+          width: 150,
+          height: 100,
+          fit: BoxFit.contain,
+        ),
+
+        const SizedBox(height: 6),
+
+        const Text(
           'ỨNG DỤNG ĐO ĐIỆN HÓA',
+          textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 24,
+            color: Color(0xFF064A96),
+            fontSize: 21,
             fontWeight: FontWeight.bold,
-            color: Colors.blue.shade900,
-            letterSpacing: 0.5,
           ),
         ),
 
-        const SizedBox(height: 5),
+        const SizedBox(height: 4),
 
-        Text(
-          'Khoa Vật lý • Đại học Khoa học Tự nhiên',
-          style: TextStyle(fontSize: 13, color: Colors.blueGrey.shade600),
+        const Text(
+          'Khoa Hóa học • Đại học Khoa học Tự nhiên',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Color(0xFF55708C), fontSize: 13),
         ),
       ],
     );
   }
+}
 
-  Widget _buildMeasurementSection() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.92),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.blue.shade100),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blue.withOpacity(0.08),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(
-              Icons.science_outlined,
-              color: Colors.blue.shade700,
-              size: 28,
-            ),
-          ),
+class _MeasurementGrid extends StatelessWidget {
+  const _MeasurementGrid();
 
-          const SizedBox(width: 14),
+  @override
+  Widget build(BuildContext context) {
+    return GridView.count(
+      crossAxisCount: 2,
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      childAspectRatio: 1.35,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      children: const [
+        _MeasurementCard(
+          icon: Icons.show_chart,
+          title: 'CV',
+          subtitle: 'Voltammetry vòng',
+        ),
+        _MeasurementCard(
+          icon: Icons.square_foot,
+          title: 'SWV',
+          subtitle: 'Voltammetry sóng vuông',
+        ),
+        _MeasurementCard(
+          icon: Icons.trending_up,
+          title: 'LSV',
+          subtitle: 'Voltammetry quét tuyến tính',
+        ),
+        _MeasurementCard(
+          icon: Icons.graphic_eq,
+          title: 'DPV',
+          subtitle: 'Voltammetry xung vi phân',
+        ),
+        _MeasurementCard(
+          icon: Icons.scatter_plot,
+          title: 'ASV',
+          subtitle: 'Voltammetry hòa tan anot',
+        ),
+        _MeasurementCard(
+          icon: Icons.timer_outlined,
+          title: 'CA',
+          subtitle: 'Ampe kế tác dụng',
+        ),
+        _MeasurementCard(
+          icon: Icons.settings_input_component,
+          title: 'EIS',
+          subtitle: 'Phổ trở kháng điện hóa',
+        ),
+      ],
+    );
+  }
+}
 
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Phép đo điện hóa',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+class _MeasurementCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  const _MeasurementCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 2,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          // Bước Setup V2 sẽ xử lý việc chọn phép đo.
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEAF4FF),
+                  borderRadius: BorderRadius.circular(14),
                 ),
+                child: Icon(icon, color: const Color(0xFF0878E8), size: 27),
+              ),
 
-                SizedBox(height: 4),
+              const SizedBox(height: 7),
 
-                Text(
-                  'Thiết lập và bắt đầu phép đo mới',
-                  style: TextStyle(fontSize: 13, color: Colors.grey),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Color(0xFF064A96),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
-              ],
-            ),
-          ),
+              ),
 
-          Icon(
-            Icons.arrow_forward_ios_rounded,
-            size: 18,
-            color: Colors.blueGrey,
+              const SizedBox(height: 2),
+
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 10, color: Color(0xFF60758A)),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
