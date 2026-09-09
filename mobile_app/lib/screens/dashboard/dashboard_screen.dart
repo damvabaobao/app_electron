@@ -91,7 +91,7 @@ class _AppHeader extends StatelessWidget {
         const SizedBox(height: 4),
 
         const Text(
-          'Khoa Hóa học • Đại học Khoa học Tự nhiên',
+          'Khoa Vật lý • Đại học Khoa học Tự nhiên',
           textAlign: TextAlign.center,
           style: TextStyle(color: Color(0xFF55708C), fontSize: 13),
         ),

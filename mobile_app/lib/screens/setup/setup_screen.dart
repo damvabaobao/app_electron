@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../models/measurement_config.dart';
-import '../../widgets/app_background.dart';
 import '../measurement/measurement_screen.dart';
 
 class SetupScreen extends StatefulWidget {
@@ -30,12 +29,27 @@ class _SetupScreenState extends State<SetupScreen> {
     text: '2',
   );
 
+  final TextEditingController windowController = TextEditingController(
+    text: '11',
+  );
+
+  final TextEditingController polynomialController = TextEditingController(
+    text: '3',
+  );
+
+  String selectedFilter = 'Savitzky-Golay';
+
+  bool baselineCorrection = true;
+  bool medianFilter = false;
+
   @override
   void dispose() {
     startController.dispose();
     endController.dispose();
     scanRateController.dispose();
     cyclesController.dispose();
+    windowController.dispose();
+    polynomialController.dispose();
 
     super.dispose();
   }
@@ -43,142 +57,182 @@ class _SetupScreenState extends State<SetupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
-
       appBar: AppBar(
-        title: const Text(
-          'Cài đặt phép đo',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
+        title: Text('Cài đặt tham số - $selectedMethod'),
         centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
       ),
 
-      body: AppBackground(
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 30),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildMethodCard(),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
 
-                const SizedBox(height: 16),
-
-                _buildPotentialCard(),
-
-                const SizedBox(height: 16),
-
-                _buildScanSettingsCard(),
-
-                const SizedBox(height: 16),
-
-                _buildSafetyCard(),
-
-                const SizedBox(height: 24),
-
-                _buildButtons(),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMethodCard() {
-    return _buildCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle(icon: Icons.science_outlined, title: 'Phương pháp đo'),
-
-          const SizedBox(height: 16),
-
-          Row(
-            children: [
-              Expanded(
-                child: _methodButton(
-                  method: 'CV',
-                  title: 'Cyclic Voltammetry',
-                  icon: Icons.show_chart,
-                ),
-              ),
-
-              const SizedBox(width: 12),
-
-              Expanded(
-                child: _methodButton(
-                  method: 'DPV',
-                  title: 'Differential Pulse',
-                  icon: Icons.stacked_line_chart,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _methodButton({
-    required String method,
-    required String title,
-    required IconData icon,
-  }) {
-    final selected = selectedMethod == method;
-
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          selectedMethod = method;
-        });
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: selected ? Colors.blue.shade50 : Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: selected ? Colors.blue.shade600 : Colors.grey.shade300,
-            width: selected ? 1.5 : 1,
-          ),
-        ),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+
           children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: selected ? Colors.blue.shade100 : Colors.white,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                color: selected ? Colors.blue.shade700 : Colors.blueGrey,
-                size: 25,
-              ),
-            ),
+            // =========================================================
+            // METHOD
+            // =========================================================
+            _sectionTitle('Phương pháp đo'),
 
             const SizedBox(height: 10),
 
-            Text(
-              method,
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.bold,
-                color: selected ? Colors.blue.shade800 : Colors.black87,
+            _methodSelector(),
+
+            const SizedBox(height: 20),
+
+            // =========================================================
+            // MEASUREMENT PARAMETERS
+            // =========================================================
+            _sectionTitle('Thông số đo'),
+
+            const SizedBox(height: 12),
+
+            _parameterCard(),
+
+            const SizedBox(height: 16),
+
+            // =========================================================
+            // FILTER
+            // =========================================================
+            _sectionTitle('Bộ lọc nhiễu'),
+
+            const SizedBox(height: 12),
+
+            _filterCard(),
+
+            const SizedBox(height: 16),
+
+            // =========================================================
+            // ADVANCED
+            // =========================================================
+            _advancedCard(),
+
+            const SizedBox(height: 24),
+
+            // =========================================================
+            // CONNECTION
+            // =========================================================
+            _connectionCard(),
+
+            const SizedBox(height: 24),
+
+            // =========================================================
+            // START
+            // =========================================================
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+
+              child: ElevatedButton.icon(
+                onPressed: _startMeasurement,
+
+                icon: const Icon(Icons.play_arrow),
+
+                label: const Text(
+                  'Bắt đầu đo',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                ),
+
+                style: ElevatedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
               ),
             ),
 
-            const SizedBox(height: 4),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
 
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 11, color: Colors.grey),
+  // ===============================================================
+  // SECTION TITLE
+  // ===============================================================
+
+  Widget _sectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+    );
+  }
+
+  // ===============================================================
+  // METHOD SELECTOR
+  // ===============================================================
+
+  Widget _methodSelector() {
+    final methods = ['CV', 'SWV', 'LSV', 'DPV', 'ASV', 'CA', 'EIS'];
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+
+      children: methods.map((method) {
+        final selected = selectedMethod == method;
+
+        return ChoiceChip(
+          label: Text(method),
+
+          selected: selected,
+
+          onSelected: (_) {
+            setState(() {
+              selectedMethod = method;
+            });
+          },
+        );
+      }).toList(),
+    );
+  }
+
+  // ===============================================================
+  // PARAMETER CARD
+  // ===============================================================
+
+  Widget _parameterCard() {
+    return Card(
+      elevation: 1,
+
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+
+        child: Column(
+          children: [
+            _numberField(
+              controller: startController,
+              label: 'Điện thế bắt đầu',
+              suffix: 'V',
+              signed: true,
+            ),
+
+            const SizedBox(height: 14),
+
+            _numberField(
+              controller: endController,
+              label: 'Điện thế kết thúc',
+              suffix: 'V',
+              signed: true,
+            ),
+
+            const SizedBox(height: 14),
+
+            _numberField(
+              controller: scanRateController,
+              label: 'Tốc độ quét',
+              suffix: 'mV/s',
+            ),
+
+            const SizedBox(height: 14),
+
+            _numberField(
+              controller: cyclesController,
+              label: 'Số chu kỳ',
+              suffix: '',
             ),
           ],
         ),
@@ -186,253 +240,227 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
-  Widget _buildPotentialCard() {
-    return _buildCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle(icon: Icons.bolt_outlined, title: 'Điện thế'),
+  // ===============================================================
+  // FILTER CARD
+  // ===============================================================
 
-          const SizedBox(height: 16),
+  Widget _filterCard() {
+    return Card(
+      elevation: 1,
 
-          Row(
-            children: [
-              Expanded(
-                child: _numberField(
-                  controller: startController,
-                  label: 'Điện thế bắt đầu',
-                  suffix: 'V',
-                ),
-              ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
 
-              const SizedBox(width: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
 
-              Expanded(
-                child: _numberField(
-                  controller: endController,
-                  label: 'Điện thế kết thúc',
-                  suffix: 'V',
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
 
-  Widget _buildScanSettingsCard() {
-    return _buildCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle(icon: Icons.speed_outlined, title: 'Thông số quét'),
-
-          const SizedBox(height: 16),
-
-          Row(
-            children: [
-              Expanded(
-                child: _numberField(
-                  controller: scanRateController,
-                  label: 'Tốc độ quét',
-                  suffix: 'mV/s',
-                ),
-              ),
-
-              const SizedBox(width: 12),
-
-              Expanded(
-                child: _numberField(
-                  controller: cyclesController,
-                  label: 'Số chu kỳ',
-                  suffix: '',
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSafetyCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.92),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.orange.shade100),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: Colors.orange.shade50,
-              shape: BoxShape.circle,
+          children: [
+            const Text(
+              'Loại bộ lọc',
+              style: TextStyle(fontWeight: FontWeight.w600),
             ),
-            child: Icon(Icons.timer_outlined, color: Colors.orange.shade700),
-          ),
 
-          const SizedBox(width: 14),
+            const SizedBox(height: 8),
 
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Thời gian dự kiến',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            DropdownButtonFormField<String>(
+              initialValue: selectedFilter,
+
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+
+              items: const [
+                DropdownMenuItem(
+                  value: 'Savitzky-Golay',
+                  child: Text('Savitzky-Golay'),
                 ),
-                SizedBox(height: 4),
-                Text(
-                  'Khoảng 25 giây',
-                  style: TextStyle(color: Colors.grey, fontSize: 13),
+
+                DropdownMenuItem(
+                  value: 'Butterworth',
+                  child: Text('Butterworth'),
                 ),
+
+                DropdownMenuItem(value: 'Median', child: Text('Median')),
+
+                DropdownMenuItem(value: 'None', child: Text('Không lọc')),
               ],
-            ),
-          ),
 
-          Icon(Icons.info_outline, color: Colors.orange),
-        ],
+              onChanged: (value) {
+                if (value == null) return;
+
+                setState(() {
+                  selectedFilter = value;
+                });
+              },
+            ),
+
+            const SizedBox(height: 14),
+
+            _numberField(
+              controller: windowController,
+              label: 'Cửa sổ (window size)',
+              suffix: '',
+            ),
+
+            const SizedBox(height: 14),
+
+            _numberField(
+              controller: polynomialController,
+              label: 'Bậc đa thức (polynomial order)',
+              suffix: '',
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildButtons() {
-    return Column(
-      children: [
-        SizedBox(
-          width: double.infinity,
-          height: 52,
-          child: OutlinedButton.icon(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Đang kiểm tra kết nối thiết bị...'),
-                ),
-              );
+  // ===============================================================
+  // ADVANCED CARD
+  // ===============================================================
+
+  Widget _advancedCard() {
+    return Card(
+      elevation: 1,
+
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+
+      child: ExpansionTile(
+        title: const Text(
+          'Tùy chọn nâng cao',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+
+        children: [
+          SwitchListTile(
+            title: const Text('Baseline correction'),
+            value: baselineCorrection,
+
+            onChanged: (value) {
+              setState(() {
+                baselineCorrection = value;
+              });
             },
-            icon: const Icon(Icons.wifi_find),
-            label: const Text(
-              'Kiểm tra kết nối',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            style: OutlinedButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(15),
-              ),
-            ),
           ),
-        ),
 
-        const SizedBox(height: 12),
+          SwitchListTile(
+            title: const Text('Median filter'),
+            value: medianFilter,
 
-        SizedBox(
-          width: double.infinity,
-          height: 54,
-          child: ElevatedButton.icon(
-            onPressed: _startMeasurement,
-            icon: const Icon(Icons.play_arrow),
-            label: const Text(
-              'Bắt đầu phép đo',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue.shade600,
-              foregroundColor: Colors.white,
-              elevation: 3,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(15),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCard({required Widget child}) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.94),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.blue.shade50),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blue.withOpacity(0.06),
-            blurRadius: 15,
-            offset: const Offset(0, 6),
+            onChanged: (value) {
+              setState(() {
+                medianFilter = value;
+              });
+            },
           ),
         ],
       ),
-      child: child,
     );
   }
 
-  Widget _sectionTitle({required IconData icon, required String title}) {
-    return Row(
-      children: [
-        Icon(icon, color: Colors.blue.shade700, size: 23),
+  // ===============================================================
+  // CONNECTION CARD
+  // ===============================================================
 
-        const SizedBox(width: 9),
+  Widget _connectionCard() {
+    return Card(
+      elevation: 1,
 
-        Text(
-          title,
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+
+        child: Row(
+          children: [
+            Container(
+              width: 12,
+              height: 12,
+
+              decoration: const BoxDecoration(
+                color: Colors.green,
+                shape: BoxShape.circle,
+              ),
+            ),
+
+            const SizedBox(width: 10),
+
+            const Expanded(
+              child: Text(
+                'Raspberry Pi / thiết bị đo',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+
+            Text(
+              'Đã kết nối',
+              style: TextStyle(
+                color: Colors.green.shade700,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
+
+  // ===============================================================
+  // NUMBER FIELD
+  // ===============================================================
 
   Widget _numberField({
     required TextEditingController controller,
     required String label,
     required String suffix,
+    bool signed = false,
   }) {
     return TextField(
       controller: controller,
-      keyboardType: const TextInputType.numberWithOptions(
+
+      keyboardType: TextInputType.numberWithOptions(
         decimal: true,
-        signed: true,
+        signed: signed,
       ),
+
       decoration: InputDecoration(
         labelText: label,
-        suffixText: suffix.isEmpty ? null : suffix,
-        filled: true,
-        fillColor: Colors.grey.shade50,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.blue.shade500, width: 1.5),
-        ),
+        suffixText: suffix,
+        border: const OutlineInputBorder(),
       ),
     );
   }
 
+  // ===============================================================
+  // START MEASUREMENT
+  // ===============================================================
+
   void _startMeasurement() {
     final config = MeasurementConfig(
       method: selectedMethod,
+
       startVoltage: double.tryParse(startController.text) ?? -1.2,
+
       endVoltage: double.tryParse(endController.text) ?? 1.2,
+
       scanRate: double.tryParse(scanRateController.text) ?? 100,
+
       cycles: int.tryParse(cyclesController.text) ?? 2,
+
+      filterType: selectedFilter,
+
+      windowSize: int.tryParse(windowController.text) ?? 11,
+
+      polynomialOrder: int.tryParse(polynomialController.text) ?? 3,
+
+      baselineCorrection: baselineCorrection,
+
+      medianFilter: medianFilter,
     );
 
     Navigator.push(
       context,
+
       MaterialPageRoute(
         builder: (context) => MeasurementScreen(config: config),
       ),
