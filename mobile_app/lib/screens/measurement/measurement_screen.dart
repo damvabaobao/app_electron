@@ -132,19 +132,27 @@ class _MeasurementScreenState extends State<MeasurementScreen> {
     final record = MeasurementRecord(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       timestamp: DateTime.now(),
-      config: widget.config,
+
+      method: widget.config.method,
+      startVoltage: widget.config.startVoltage,
+      endVoltage: widget.config.endVoltage,
+      scanRate: widget.config.scanRate,
+      cycles: widget.config.cycles,
+
       data: List.unmodifiable(_measurementData),
+
       peak: peak,
       signalFeatures: signalFeatures,
       physicsFeatures: physicsFeatures,
+
       featureVector: featureVector,
+
       substance: prediction.substance,
       confidence: prediction.confidence,
       concentration: prediction.concentration,
     );
 
     // Lưu phép đo vào history
-
     _historyService.addRecord(record);
 
     // Debug
