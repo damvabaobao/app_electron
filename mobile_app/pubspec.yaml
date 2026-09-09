@@ -61,7 +61,7 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/hus_logo.png
+    - assets/images/hus_logo.jpg
 
   # To add assets to your application, add an assets section, like this:
   # assets:
