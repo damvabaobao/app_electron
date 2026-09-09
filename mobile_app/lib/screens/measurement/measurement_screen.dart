@@ -132,11 +132,7 @@ class _MeasurementScreenState extends State<MeasurementScreen> {
     final record = MeasurementRecord(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       timestamp: DateTime.now(),
-      method: widget.config.method,
-      startVoltage: widget.config.startVoltage,
-      endVoltage: widget.config.endVoltage,
-      scanRate: widget.config.scanRate,
-      cycles: widget.config.cycles,
+      config: widget.config,
       data: List.unmodifiable(_measurementData),
       peak: peak,
       signalFeatures: signalFeatures,

@@ -1,8 +1,11 @@
 class MeasurementConfig {
   final String method;
+
   final double startVoltage;
   final double endVoltage;
+
   final double scanRate;
+
   final int cycles;
 
   const MeasurementConfig({
