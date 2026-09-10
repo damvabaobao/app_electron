@@ -11,54 +11,140 @@ class SetupScreen extends StatefulWidget {
 }
 
 class _SetupScreenState extends State<SetupScreen> {
+  // ============================================================
+  // METHOD
+  // ============================================================
+
   String selectedMethod = 'CV';
 
-  final TextEditingController startController = TextEditingController(
-    text: '-1.2',
-  );
+  final List<String> methods = ['CV', 'LSV', 'SWV', 'DPV', 'ASV', 'CA', 'EIS'];
 
-  final TextEditingController endController = TextEditingController(
-    text: '1.2',
-  );
+  // ============================================================
+  // COMMON VOLTAGE / SCAN
+  // ============================================================
 
-  final TextEditingController scanRateController = TextEditingController(
-    text: '100',
-  );
+  final startVoltageController = TextEditingController(text: '-200');
 
-  final TextEditingController cyclesController = TextEditingController(
-    text: '2',
-  );
+  final endVoltageController = TextEditingController(text: '600');
 
-  final TextEditingController windowController = TextEditingController(
-    text: '11',
-  );
+  final stepVoltageController = TextEditingController(text: '10');
 
-  final TextEditingController polynomialController = TextEditingController(
-    text: '3',
-  );
+  final scanRateController = TextEditingController(text: '100');
 
-  String selectedFilter = 'Savitzky-Golay';
+  final cyclesController = TextEditingController(text: '1');
 
-  bool baselineCorrection = true;
-  bool medianFilter = false;
+  // ============================================================
+  // PULSE PARAMETERS
+  // ============================================================
+
+  final amplitudeController = TextEditingController(text: '25');
+
+  final pulseWidthController = TextEditingController(text: '50');
+
+  final frequencyController = TextEditingController(text: '10');
+
+  // ============================================================
+  // DEPOSITION
+  // ============================================================
+
+  bool useDeposition = false;
+
+  final depositionVoltageController = TextEditingController(text: '-500');
+
+  final depositionTimeController = TextEditingController(text: '60000');
+
+  // ============================================================
+  // CLEANING
+  // ============================================================
+
+  final cleaningVoltageController = TextEditingController(text: '1100');
+
+  final cleaningTimeController = TextEditingController(text: '8000');
+
+  // ============================================================
+  // EQUILIBRIUM
+  // ============================================================
+
+  final equilibriumVoltageController = TextEditingController(text: '-50');
+
+  final equilibriumTimeController = TextEditingController(text: '10000');
+
+  // ============================================================
+  // CHRONOAMPEROMETRY
+  // ============================================================
+
+  final appliedVoltageController = TextEditingController(text: '0');
+
+  final timeRunController = TextEditingController(text: '30');
+
+  final timeIntervalController = TextEditingController(text: '100');
+
+  // ============================================================
+  // EIS
+  // ============================================================
+
+  final startFrequencyController = TextEditingController(text: '1');
+
+  final stopFrequencyController = TextEditingController(text: '100000');
+
+  final sweepPointsController = TextEditingController(text: '50');
+
+  final repeatTimesController = TextEditingController(text: '1');
+
+  // ============================================================
+  // FILTER
+  // ============================================================
+
+  String selectedFilter = '1/7 (Moving Avg 7pt)';
+
+  // ============================================================
+  // CONNECTION
+  // ============================================================
+
+  bool deviceConnected = true;
 
   @override
   void dispose() {
-    startController.dispose();
-    endController.dispose();
+    startVoltageController.dispose();
+    endVoltageController.dispose();
+    stepVoltageController.dispose();
     scanRateController.dispose();
     cyclesController.dispose();
-    windowController.dispose();
-    polynomialController.dispose();
+
+    amplitudeController.dispose();
+    pulseWidthController.dispose();
+    frequencyController.dispose();
+
+    depositionVoltageController.dispose();
+    depositionTimeController.dispose();
+
+    cleaningVoltageController.dispose();
+    cleaningTimeController.dispose();
+
+    equilibriumVoltageController.dispose();
+    equilibriumTimeController.dispose();
+
+    appliedVoltageController.dispose();
+    timeRunController.dispose();
+    timeIntervalController.dispose();
+
+    startFrequencyController.dispose();
+    stopFrequencyController.dispose();
+    sweepPointsController.dispose();
+    repeatTimesController.dispose();
 
     super.dispose();
   }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Cài đặt tham số - $selectedMethod'),
+        title: Text('Cài đặt phép đo - $selectedMethod'),
         centerTitle: true,
       ),
 
@@ -69,56 +155,34 @@ class _SetupScreenState extends State<SetupScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
 
           children: [
-            // =========================================================
-            // METHOD
-            // =========================================================
             _sectionTitle('Phương pháp đo'),
 
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
 
-            _methodSelector(),
+            _buildMethodSelector(),
 
             const SizedBox(height: 20),
 
-            // =========================================================
-            // MEASUREMENT PARAMETERS
-            // =========================================================
-            _sectionTitle('Thông số đo'),
+            _sectionTitle('Thông số phép đo'),
 
             const SizedBox(height: 12),
 
-            _parameterCard(),
+            _buildMethodParameters(),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
 
-            // =========================================================
-            // FILTER
-            // =========================================================
-            _sectionTitle('Bộ lọc nhiễu'),
+            _sectionTitle('Bộ lọc tín hiệu'),
 
             const SizedBox(height: 12),
 
-            _filterCard(),
+            _buildFilterCard(),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
 
-            // =========================================================
-            // ADVANCED
-            // =========================================================
-            _advancedCard(),
+            _buildConnectionCard(),
 
             const SizedBox(height: 24),
 
-            // =========================================================
-            // CONNECTION
-            // =========================================================
-            _connectionCard(),
-
-            const SizedBox(height: 24),
-
-            // =========================================================
-            // START
-            // =========================================================
             SizedBox(
               width: double.infinity,
               height: 54,
@@ -129,7 +193,7 @@ class _SetupScreenState extends State<SetupScreen> {
                 icon: const Icon(Icons.play_arrow),
 
                 label: const Text(
-                  'Bắt đầu đo',
+                  'Bắt đầu phép đo',
                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
                 ),
 
@@ -148,9 +212,9 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
-  // ===============================================================
+  // ============================================================
   // SECTION TITLE
-  // ===============================================================
+  // ============================================================
 
   Widget _sectionTitle(String title) {
     return Text(
@@ -159,13 +223,11 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
-  // ===============================================================
+  // ============================================================
   // METHOD SELECTOR
-  // ===============================================================
+  // ============================================================
 
-  Widget _methodSelector() {
-    final methods = ['CV', 'SWV', 'LSV', 'DPV', 'ASV', 'CA', 'EIS'];
-
+  Widget _buildMethodSelector() {
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -188,63 +250,409 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
-  // ===============================================================
-  // PARAMETER CARD
-  // ===============================================================
+  // ============================================================
+  // METHOD PARAMETERS
+  // ============================================================
 
-  Widget _parameterCard() {
-    return Card(
-      elevation: 1,
+  Widget _buildMethodParameters() {
+    switch (selectedMethod) {
+      case 'CV':
+        return _buildCVParameters();
 
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      case 'LSV':
+        return _buildLSVParameters();
 
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+      case 'SWV':
+        return _buildSWVParameters();
 
-        child: Column(
+      case 'DPV':
+        return _buildDPVParameters();
+
+      case 'ASV':
+        return _buildASVParameters();
+
+      case 'CA':
+        return _buildCAParameters();
+
+      case 'EIS':
+        return _buildEISParameters();
+
+      default:
+        return _buildCVParameters();
+    }
+  }
+
+  // ============================================================
+  // CV
+  // ============================================================
+
+  Widget _buildCVParameters() {
+    return _parameterCard(
+      children: [
+        _numberField(
+          controller: startVoltageController,
+          label: 'Điện thế bắt đầu',
+          suffix: 'mV',
+          signed: true,
+        ),
+
+        _numberField(
+          controller: endVoltageController,
+          label: 'Điện thế kết thúc',
+          suffix: 'mV',
+          signed: true,
+        ),
+
+        _numberField(
+          controller: stepVoltageController,
+          label: 'Bước điện thế',
+          suffix: 'mV',
+          signed: true,
+        ),
+
+        _numberField(
+          controller: scanRateController,
+          label: 'Tốc độ quét',
+          suffix: 'mV/s',
+        ),
+
+        _numberField(
+          controller: cyclesController,
+          label: 'Số chu kỳ',
+          suffix: '',
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // LSV
+  // ============================================================
+
+  Widget _buildLSVParameters() {
+    return _parameterCard(
+      children: [
+        _numberField(
+          controller: startVoltageController,
+          label: 'Điện thế bắt đầu',
+          suffix: 'mV',
+          signed: true,
+        ),
+
+        _numberField(
+          controller: endVoltageController,
+          label: 'Điện thế kết thúc',
+          suffix: 'mV',
+          signed: true,
+        ),
+
+        _numberField(
+          controller: stepVoltageController,
+          label: 'Bước điện thế',
+          suffix: 'mV',
+          signed: true,
+        ),
+
+        _numberField(
+          controller: scanRateController,
+          label: 'Tốc độ quét',
+          suffix: 'mV/s',
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // SWV
+  // ============================================================
+
+  Widget _buildSWVParameters() {
+    return _parameterCard(
+      children: [
+        _numberField(
+          controller: startVoltageController,
+          label: 'Điện thế bắt đầu',
+          suffix: 'mV',
+          signed: true,
+        ),
+
+        _numberField(
+          controller: endVoltageController,
+          label: 'Điện thế kết thúc',
+          suffix: 'mV',
+          signed: true,
+        ),
+
+        _numberField(
+          controller: stepVoltageController,
+          label: 'Bước điện thế',
+          suffix: 'mV',
+          signed: true,
+        ),
+
+        _numberField(
+          controller: amplitudeController,
+          label: 'Biên độ xung',
+          suffix: 'mV',
+          signed: true,
+        ),
+
+        _numberField(
+          controller: pulseWidthController,
+          label: 'Độ rộng xung',
+          suffix: 'ms',
+        ),
+
+        _numberField(
+          controller: frequencyController,
+          label: 'Tần số',
+          suffix: 'Hz',
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // DPV
+  // ============================================================
+
+  Widget _buildDPVParameters() {
+    return _parameterCard(
+      children: [
+        _numberField(
+          controller: startVoltageController,
+          label: 'Điện thế bắt đầu',
+          suffix: 'mV',
+          signed: true,
+        ),
+
+        _numberField(
+          controller: endVoltageController,
+          label: 'Điện thế kết thúc',
+          suffix: 'mV',
+          signed: true,
+        ),
+
+        _numberField(
+          controller: stepVoltageController,
+          label: 'Bước điện thế',
+          suffix: 'mV',
+          signed: true,
+        ),
+
+        _numberField(
+          controller: amplitudeController,
+          label: 'Biên độ xung',
+          suffix: 'mV',
+          signed: true,
+        ),
+
+        _numberField(
+          controller: pulseWidthController,
+          label: 'Độ rộng xung',
+          suffix: 'ms',
+        ),
+
+        _numberField(
+          controller: frequencyController,
+          label: 'Tần số',
+          suffix: 'Hz',
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // ASV
+  // ============================================================
+
+  Widget _buildASVParameters() {
+    return Column(
+      children: [
+        _parameterCard(
+          title: 'Quét điện thế',
           children: [
             _numberField(
-              controller: startController,
+              controller: startVoltageController,
               label: 'Điện thế bắt đầu',
-              suffix: 'V',
+              suffix: 'mV',
               signed: true,
             ),
-
-            const SizedBox(height: 14),
 
             _numberField(
-              controller: endController,
+              controller: endVoltageController,
               label: 'Điện thế kết thúc',
-              suffix: 'V',
+              suffix: 'mV',
               signed: true,
             ),
 
-            const SizedBox(height: 14),
+            _numberField(
+              controller: stepVoltageController,
+              label: 'Bước điện thế',
+              suffix: 'mV',
+              signed: true,
+            ),
 
             _numberField(
               controller: scanRateController,
               label: 'Tốc độ quét',
               suffix: 'mV/s',
             ),
+          ],
+        ),
 
-            const SizedBox(height: 14),
+        const SizedBox(height: 14),
+
+        _parameterCard(
+          title: 'Deposition',
+          children: [
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Sử dụng deposition'),
+
+              value: useDeposition,
+
+              onChanged: (value) {
+                setState(() {
+                  useDeposition = value;
+                });
+              },
+            ),
+
+            if (useDeposition) ...[
+              _numberField(
+                controller: depositionVoltageController,
+                label: 'Điện thế deposition',
+                suffix: 'mV',
+                signed: true,
+              ),
+
+              _numberField(
+                controller: depositionTimeController,
+                label: 'Thời gian deposition',
+                suffix: 'ms',
+              ),
+            ],
+          ],
+        ),
+
+        const SizedBox(height: 14),
+
+        _parameterCard(
+          title: 'Cleaning',
+          children: [
+            _numberField(
+              controller: cleaningVoltageController,
+              label: 'Điện thế cleaning',
+              suffix: 'mV',
+              signed: true,
+            ),
 
             _numberField(
-              controller: cyclesController,
-              label: 'Số chu kỳ',
-              suffix: '',
+              controller: cleaningTimeController,
+              label: 'Thời gian cleaning',
+              suffix: 'ms',
             ),
           ],
         ),
-      ),
+
+        const SizedBox(height: 14),
+
+        _parameterCard(
+          title: 'Equilibrium',
+          children: [
+            _numberField(
+              controller: equilibriumVoltageController,
+              label: 'Điện thế equilibrium',
+              suffix: 'mV',
+              signed: true,
+            ),
+
+            _numberField(
+              controller: equilibriumTimeController,
+              label: 'Thời gian equilibrium',
+              suffix: 'ms',
+            ),
+          ],
+        ),
+      ],
     );
   }
 
-  // ===============================================================
-  // FILTER CARD
-  // ===============================================================
+  // ============================================================
+  // CA
+  // ============================================================
 
-  Widget _filterCard() {
+  Widget _buildCAParameters() {
+    return _parameterCard(
+      children: [
+        _numberField(
+          controller: appliedVoltageController,
+          label: 'Điện thế áp dụng',
+          suffix: 'mV',
+          signed: true,
+        ),
+
+        _numberField(
+          controller: timeRunController,
+          label: 'Thời gian đo',
+          suffix: 's',
+        ),
+
+        _numberField(
+          controller: timeIntervalController,
+          label: 'Khoảng thời gian lấy mẫu',
+          suffix: 'ms',
+        ),
+
+        _numberField(
+          controller: repeatTimesController,
+          label: 'Số lần lặp',
+          suffix: '',
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // EIS
+  // ============================================================
+
+  Widget _buildEISParameters() {
+    return _parameterCard(
+      children: [
+        _numberField(
+          controller: startFrequencyController,
+          label: 'Tần số bắt đầu',
+          suffix: 'Hz',
+        ),
+
+        _numberField(
+          controller: stopFrequencyController,
+          label: 'Tần số kết thúc',
+          suffix: 'Hz',
+        ),
+
+        _numberField(
+          controller: sweepPointsController,
+          label: 'Số điểm quét',
+          suffix: '',
+        ),
+
+        _numberField(
+          controller: repeatTimesController,
+          label: 'Số lần lặp',
+          suffix: '',
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // PARAMETER CARD
+  // ============================================================
+
+  Widget _parameterCard({String? title, required List<Widget> children}) {
     return Card(
       elevation: 1,
 
@@ -257,112 +665,95 @@ class _SetupScreenState extends State<SetupScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
 
           children: [
-            const Text(
-              'Loại bộ lọc',
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
-
-            const SizedBox(height: 8),
-
-            DropdownButtonFormField<String>(
-              initialValue: selectedFilter,
-
-              decoration: const InputDecoration(border: OutlineInputBorder()),
-
-              items: const [
-                DropdownMenuItem(
-                  value: 'Savitzky-Golay',
-                  child: Text('Savitzky-Golay'),
+            if (title != null) ...[
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
+              ),
 
-                DropdownMenuItem(
-                  value: 'Butterworth',
-                  child: Text('Butterworth'),
-                ),
+              const SizedBox(height: 12),
+            ],
 
-                DropdownMenuItem(value: 'Median', child: Text('Median')),
-
-                DropdownMenuItem(value: 'None', child: Text('Không lọc')),
-              ],
-
-              onChanged: (value) {
-                if (value == null) return;
-
-                setState(() {
-                  selectedFilter = value;
-                });
-              },
-            ),
-
-            const SizedBox(height: 14),
-
-            _numberField(
-              controller: windowController,
-              label: 'Cửa sổ (window size)',
-              suffix: '',
-            ),
-
-            const SizedBox(height: 14),
-
-            _numberField(
-              controller: polynomialController,
-              label: 'Bậc đa thức (polynomial order)',
-              suffix: '',
-            ),
+            ..._addSpacing(children),
           ],
         ),
       ),
     );
   }
 
-  // ===============================================================
-  // ADVANCED CARD
-  // ===============================================================
+  List<Widget> _addSpacing(List<Widget> widgets) {
+    final result = <Widget>[];
 
-  Widget _advancedCard() {
+    for (int i = 0; i < widgets.length; i++) {
+      result.add(widgets[i]);
+
+      if (i < widgets.length - 1) {
+        result.add(const SizedBox(height: 14));
+      }
+    }
+
+    return result;
+  }
+
+  // ============================================================
+  // FILTER
+  // ============================================================
+
+  Widget _buildFilterCard() {
     return Card(
       elevation: 1,
 
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
 
-      child: ExpansionTile(
-        title: const Text(
-          'Tùy chọn nâng cao',
-          style: TextStyle(fontWeight: FontWeight.bold),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+
+        child: DropdownButtonFormField<String>(
+          initialValue: selectedFilter,
+
+          decoration: const InputDecoration(
+            labelText: 'Phương pháp lọc',
+            border: OutlineInputBorder(),
+          ),
+
+          items: const [
+            DropdownMenuItem(
+              value: '1/7 (Moving Avg 7pt)',
+              child: Text('Moving Average 7 điểm'),
+            ),
+
+            DropdownMenuItem(
+              value: 'Savitzky-Golay',
+              child: Text('Savitzky-Golay'),
+            ),
+
+            DropdownMenuItem(value: 'Butterworth', child: Text('Butterworth')),
+
+            DropdownMenuItem(value: 'Median', child: Text('Median')),
+
+            DropdownMenuItem(value: 'None', child: Text('Không lọc')),
+          ],
+
+          onChanged: (value) {
+            if (value == null) return;
+
+            setState(() {
+              selectedFilter = value;
+            });
+          },
         ),
-
-        children: [
-          SwitchListTile(
-            title: const Text('Baseline correction'),
-            value: baselineCorrection,
-
-            onChanged: (value) {
-              setState(() {
-                baselineCorrection = value;
-              });
-            },
-          ),
-
-          SwitchListTile(
-            title: const Text('Median filter'),
-            value: medianFilter,
-
-            onChanged: (value) {
-              setState(() {
-                medianFilter = value;
-              });
-            },
-          ),
-        ],
       ),
     );
   }
 
-  // ===============================================================
-  // CONNECTION CARD
-  // ===============================================================
+  // ============================================================
+  // CONNECTION
+  // ============================================================
 
-  Widget _connectionCard() {
+  Widget _buildConnectionCard() {
     return Card(
       elevation: 1,
 
@@ -377,8 +768,9 @@ class _SetupScreenState extends State<SetupScreen> {
               width: 12,
               height: 12,
 
-              decoration: const BoxDecoration(
-                color: Colors.green,
+              decoration: BoxDecoration(
+                color: deviceConnected ? Colors.green : Colors.red,
+
                 shape: BoxShape.circle,
               ),
             ),
@@ -393,9 +785,13 @@ class _SetupScreenState extends State<SetupScreen> {
             ),
 
             Text(
-              'Đã kết nối',
+              deviceConnected ? 'Đã kết nối' : 'Chưa kết nối',
+
               style: TextStyle(
-                color: Colors.green.shade700,
+                color: deviceConnected
+                    ? Colors.green.shade700
+                    : Colors.red.shade700,
+
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -405,9 +801,9 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
-  // ===============================================================
+  // ============================================================
   // NUMBER FIELD
-  // ===============================================================
+  // ============================================================
 
   Widget _numberField({
     required TextEditingController controller,
@@ -431,36 +827,92 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
-  // ===============================================================
+  // ============================================================
   // START MEASUREMENT
-  // ===============================================================
+  // ============================================================
 
   void _startMeasurement() {
     final config = MeasurementConfig(
       method: selectedMethod,
 
-      startVoltage: double.tryParse(startController.text) ?? -1.2,
+      // ----------------------------------------------------------
+      // Voltage / scan
+      // ----------------------------------------------------------
+      startVoltage: double.tryParse(startVoltageController.text) ?? -200,
 
-      endVoltage: double.tryParse(endController.text) ?? 1.2,
+      endVoltage: double.tryParse(endVoltageController.text) ?? 600,
+
+      stepVoltage: double.tryParse(stepVoltageController.text) ?? 10,
 
       scanRate: double.tryParse(scanRateController.text) ?? 100,
 
-      cycles: int.tryParse(cyclesController.text) ?? 2,
+      // ----------------------------------------------------------
+      // General repeat
+      // ----------------------------------------------------------
+      cycles: int.tryParse(cyclesController.text) ?? 1,
 
+      // ----------------------------------------------------------
+      // Pulse
+      // ----------------------------------------------------------
+      amplitude: double.tryParse(amplitudeController.text) ?? 25,
+
+      pulseWidth: double.tryParse(pulseWidthController.text) ?? 50,
+
+      frequency: double.tryParse(frequencyController.text) ?? 10,
+
+      // ----------------------------------------------------------
+      // Filter
+      // ----------------------------------------------------------
       filterType: selectedFilter,
 
-      windowSize: int.tryParse(windowController.text) ?? 11,
+      // ----------------------------------------------------------
+      // Deposition
+      // ----------------------------------------------------------
+      useDeposition: useDeposition,
 
-      polynomialOrder: int.tryParse(polynomialController.text) ?? 3,
+      depositionVoltage:
+          double.tryParse(depositionVoltageController.text) ?? -500,
 
-      baselineCorrection: baselineCorrection,
+      depositionTime: int.tryParse(depositionTimeController.text) ?? 60000,
 
-      medianFilter: medianFilter,
+      // ----------------------------------------------------------
+      // Cleaning
+      // ----------------------------------------------------------
+      cleaningVoltage: double.tryParse(cleaningVoltageController.text) ?? 1100,
+
+      cleaningTime: int.tryParse(cleaningTimeController.text) ?? 8000,
+
+      // ----------------------------------------------------------
+      // Equilibrium
+      // ----------------------------------------------------------
+      equilibriumVoltage:
+          double.tryParse(equilibriumVoltageController.text) ?? -50,
+
+      equilibriumTime: int.tryParse(equilibriumTimeController.text) ?? 10000,
+
+      // ----------------------------------------------------------
+      // Chronoamperometry
+      // ----------------------------------------------------------
+      timeRun: int.tryParse(timeRunController.text) ?? 30,
+
+      appliedVoltage: double.tryParse(appliedVoltageController.text) ?? 0,
+
+      timeInterval: int.tryParse(timeIntervalController.text) ?? 100,
+
+      // ----------------------------------------------------------
+      // EIS
+      // ----------------------------------------------------------
+      startFrequency: double.tryParse(startFrequencyController.text) ?? 1,
+
+      stopFrequency: double.tryParse(stopFrequencyController.text) ?? 100000,
+
+      sweepPoints: int.tryParse(sweepPointsController.text) ?? 50,
+
+      repeatTimes: int.tryParse(repeatTimesController.text) ?? 1,
     );
 
     Navigator.push(
       context,
-
       MaterialPageRoute(
         builder: (context) => MeasurementScreen(config: config),
       ),
