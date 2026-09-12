@@ -63,7 +63,7 @@ class VoltammogramChart extends StatelessWidget {
 
             bottomTitles: AxisTitles(
               axisNameWidget: const Text(
-                'Potential (V)',
+                'Potential (mV)',
                 style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
               ),
               sideTitles: SideTitles(
@@ -130,10 +130,7 @@ class VoltammogramChart extends StatelessWidget {
       ),
     );
   }
-
-  // ============================================================
   // X RANGE
-  // ============================================================
 
   _ChartRange _calculateXRange() {
     if (spots.isEmpty) {
@@ -173,10 +170,7 @@ class VoltammogramChart extends StatelessWidget {
 
     return _ChartRange(min: minX - padding, max: maxX + padding);
   }
-
-  // ============================================================
   // Y RANGE
-  // ============================================================
 
   _ChartRange _calculateYRange() {
     if (spots.isEmpty) {
@@ -213,10 +207,7 @@ class VoltammogramChart extends StatelessWidget {
 
     return _ChartRange(min: minY - padding, max: maxY + padding);
   }
-
-  // ============================================================
   // GRID INTERVAL
-  // ============================================================
 
   double _calculateHorizontalInterval(double minY, double maxY) {
     final range = maxY - minY;
@@ -295,9 +286,7 @@ class VoltammogramChart extends StatelessWidget {
   }
 }
 
-// ============================================================
 // SIMPLE RANGE MODEL
-// ============================================================
 
 class _ChartRange {
   final double min;

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
@@ -58,6 +59,79 @@ class _MeasurementScreenState extends State<MeasurementScreen> {
   double progress = 0.0;
 
   int sampleCount = 0;
+  int totalSamples = 1;
+
+  int _estimateTotalSamples() {
+    final config = widget.config;
+
+    switch (config.method) {
+      case 'CA':
+        if (config.timeInterval <= 0) {
+          return 1;
+        }
+
+        return ((config.timeRun * 1000) / config.timeInterval).ceil();
+
+      case 'EIS':
+        return config.sweepPoints * config.repeatTimes;
+
+      case 'CV':
+        final voltageRange = (config.endVoltage - config.startVoltage).abs();
+
+        if (config.scanRate <= 0) {
+          return 1;
+        }
+
+        final timeSeconds = voltageRange / config.scanRate;
+
+        final pointsPerSweep = (timeSeconds * 1000 / 50).ceil();
+
+        return max(1, pointsPerSweep * 2 * config.cycles);
+
+      case 'ASV':
+        final depositionSamples = config.useDeposition
+            ? (config.depositionTime / 50).ceil()
+            : 0;
+
+        final cleaningSamples = (config.cleaningTime / 50).ceil();
+
+        final equilibriumSamples = (config.equilibriumTime / 50).ceil();
+
+        final voltageRange = (config.endVoltage - config.startVoltage).abs();
+
+        final scanTime = config.scanRate > 0
+            ? voltageRange / config.scanRate
+            : 0;
+
+        final strippingSamples = (scanTime * 1000 / 50).ceil();
+
+        return max(
+          1,
+          depositionSamples +
+              cleaningSamples +
+              equilibriumSamples +
+              strippingSamples * config.cycles,
+        );
+
+      case 'LSV':
+      case 'SWV':
+      case 'DPV':
+        final voltageRange = (config.endVoltage - config.startVoltage).abs();
+
+        final step = config.stepVoltage.abs();
+
+        if (step <= 0) {
+          return 1;
+        }
+
+        final pointsPerSweep = (voltageRange / step).ceil() + 1;
+
+        return max(1, pointsPerSweep * config.cycles);
+
+      default:
+        return 1;
+    }
+  }
 
   @override
   void initState() {
@@ -72,6 +146,7 @@ class _MeasurementScreenState extends State<MeasurementScreen> {
 
     sampleCount = 0;
     progress = 0.0;
+    totalSamples = _estimateTotalSamples();
 
     _subscription = _measurementService.startMeasurement(widget.config).listen(
       (data) {
@@ -84,10 +159,7 @@ class _MeasurementScreenState extends State<MeasurementScreen> {
 
           sampleCount++;
 
-          progress =
-              ((data.voltage - widget.config.startVoltage) /
-                      (widget.config.endVoltage - widget.config.startVoltage))
-                  .clamp(0.0, 1.0);
+          progress = (sampleCount / totalSamples).clamp(0.0, 1.0);
         });
       },
 
@@ -221,9 +293,9 @@ class _MeasurementScreenState extends State<MeasurementScreen> {
               // Khoảng điện thế
               Text(
                 'Potential: '
-                '${widget.config.startVoltage.toStringAsFixed(2)} V'
+                '${widget.config.startVoltage.toStringAsFixed(2)} mV'
                 ' → '
-                '${widget.config.endVoltage.toStringAsFixed(2)} V',
+                '${widget.config.endVoltage.toStringAsFixed(2)} mV',
                 style: const TextStyle(fontSize: 16),
               ),
 

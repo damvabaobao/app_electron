@@ -1,4 +1,5 @@
 import '../models/measurement_record.dart';
+import '../models/measuremen_session.dart';
 
 class MeasurementHistoryService {
   static final MeasurementHistoryService _instance =
@@ -11,9 +12,14 @@ class MeasurementHistoryService {
   MeasurementHistoryService._internal();
 
   final List<MeasurementRecord> _records = [];
+  final List<MeasurementSession> _sessions = [];
 
   List<MeasurementRecord> get records {
     return List.unmodifiable(_records);
+  }
+
+  List<MeasurementSession> get sessions {
+    return List.unmodifiable(_sessions);
   }
 
   void addRecord(MeasurementRecord record) {

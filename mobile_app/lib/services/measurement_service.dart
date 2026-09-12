@@ -6,7 +6,6 @@ import '../models/measurement_config.dart';
 
 class MeasurementService {
   Timer? _timer;
-
   StreamController<ElectrochemicalData>? _controller;
 
   // ============================================================
@@ -21,10 +20,9 @@ class MeasurementService {
 
   int _sampleIndex = 0;
 
-  // Dùng cho CA
-  int _elapsedMilliseconds = 0;
+  double _elapsedSeconds = 0.0;
 
-  // Dùng cho ASV
+  // ASV phase
   String _asvPhase = 'deposition';
 
   // Random generator
@@ -42,8 +40,9 @@ class MeasurementService {
     _cycle = 1;
     _reverse = false;
     _sampleIndex = 0;
-    _elapsedMilliseconds = 0;
-    _asvPhase = 'deposition';
+    _elapsedSeconds = 0.0;
+
+    _asvPhase = config.useDeposition ? 'deposition' : 'equilibrium';
 
     _voltage = config.startVoltage;
 
@@ -70,17 +69,53 @@ class MeasurementService {
   void _generateSample(MeasurementConfig config, int sampleIntervalMs) {
     final current = _generateCurrent(config, sampleIntervalMs);
 
-    _controller?.add(
-      ElectrochemicalData(
-        voltage: _voltage,
-        current: current,
-        timestamp: DateTime.now(),
-      ),
-    );
+    final data = _createData(config, current);
+
+    _controller?.add(data);
 
     _updateMeasurement(config, sampleIntervalMs);
 
-    _sampleIndex++;
+    if (config.method != 'EIS') {
+      _sampleIndex++;
+    }
+  }
+
+  // ============================================================
+  // CREATE ELECTROCHEMICAL DATA
+  // ============================================================
+
+  ElectrochemicalData _createData(MeasurementConfig config, double current) {
+    if (config.method == 'CA') {
+      return ElectrochemicalData(
+        voltage: config.appliedVoltage,
+        current: current,
+        timestamp: DateTime.now(),
+        time: _elapsedSeconds,
+      );
+    }
+
+    if (config.method == 'EIS') {
+      final frequency = _calculateEISFrequency(config);
+
+      final impedance = _calculateEISImpedance(frequency);
+
+      final phase = _calculateEISPhase(frequency);
+
+      return ElectrochemicalData(
+        voltage: _voltage,
+        current: current,
+        timestamp: DateTime.now(),
+        frequency: frequency,
+        impedanceMagnitude: impedance,
+        phase: phase,
+      );
+    }
+
+    return ElectrochemicalData(
+      voltage: _voltage,
+      current: current,
+      timestamp: DateTime.now(),
+    );
   }
 
   // ============================================================
@@ -105,7 +140,7 @@ class MeasurementService {
         return _generateASVCurrent(config);
 
       case 'CA':
-        return _generateCACurrent(config, sampleIntervalMs);
+        return _generateCACurrent();
 
       case 'EIS':
         return _generateEISCurrent(config);
@@ -122,10 +157,8 @@ class MeasurementService {
   double _generateCVCurrent() {
     final voltageV = _voltage / 1000.0;
 
-    // Oxidation peak
     final oxidationPeak = exp(-pow(voltageV - 0.20, 2) / 0.02);
 
-    // Reduction peak
     final reductionPeak = exp(-pow(voltageV + 0.15, 2) / 0.03);
 
     final direction = _reverse ? -1.0 : 1.0;
@@ -133,7 +166,7 @@ class MeasurementService {
     final faradaicCurrent =
         direction * oxidationPeak * 0.8 + direction * reductionPeak * 0.35;
 
-    final capacitiveCurrent = 0.0005 * (_reverse ? -1 : 1);
+    final capacitiveCurrent = 0.0005 * (_reverse ? -1.0 : 1.0);
 
     final noise = (_random.nextDouble() - 0.5) * 0.03;
 
@@ -193,43 +226,38 @@ class MeasurementService {
   // ============================================================
 
   double _generateASVCurrent(MeasurementConfig config) {
-    if (_asvPhase == 'deposition') {
-      final noise = (_random.nextDouble() - 0.5) * 0.02;
+    switch (_asvPhase) {
+      case 'deposition':
+        return -0.15 + (_random.nextDouble() - 0.5) * 0.02;
 
-      return -0.15 + noise;
+      case 'cleaning':
+        return 0.12 + (_random.nextDouble() - 0.5) * 0.02;
+
+      case 'equilibrium':
+        return 0.01 + (_random.nextDouble() - 0.5) * 0.01;
+
+      case 'stripping':
+        final voltageV = _voltage / 1000.0;
+
+        final strippingPeak = exp(-pow(voltageV - 0.35, 2) / 0.01);
+
+        final noise = (_random.nextDouble() - 0.5) * 0.015;
+
+        return strippingPeak + noise;
+
+      default:
+        return 0.0;
     }
-
-    if (_asvPhase == 'cleaning') {
-      final noise = (_random.nextDouble() - 0.5) * 0.02;
-
-      return 0.12 + noise;
-    }
-
-    if (_asvPhase == 'equilibrium') {
-      final noise = (_random.nextDouble() - 0.5) * 0.01;
-
-      return 0.01 + noise;
-    }
-
-    // Stripping / voltammetric scan
-    final voltageV = _voltage / 1000.0;
-
-    final strippingPeak = exp(-pow(voltageV - 0.35, 2) / 0.01);
-
-    final noise = (_random.nextDouble() - 0.5) * 0.015;
-
-    return strippingPeak + noise;
   }
 
   // ============================================================
   // CHRONOAMPEROMETRY
   // ============================================================
 
-  double _generateCACurrent(MeasurementConfig config, int sampleIntervalMs) {
-    final timeSeconds = _elapsedMilliseconds / 1000.0;
+  double _generateCACurrent() {
+    final time = max(_elapsedSeconds, 0.05);
 
-    // Cottrell-like decay
-    final decay = 1.0 / sqrt(max(timeSeconds, 0.05));
+    final decay = 1.0 / sqrt(time);
 
     final baseCurrent = 0.8 * decay;
 
@@ -243,29 +271,72 @@ class MeasurementService {
   // ============================================================
 
   double _generateEISCurrent(MeasurementConfig config) {
-    /*
-     * Lưu ý:
-     *
-     * ElectrochemicalData hiện tại chỉ có:
-     *
-     * voltage
-     * current
-     * timestamp
-     *
-     * nên chưa thể biểu diễn EIS đúng nghĩa
-     * (frequency, impedance magnitude, phase).
-     *
-     * Ở bước này chỉ tạo tín hiệu mô phỏng
-     * để kiểm tra luồng MeasurementService.
-     */
+    final frequency = _calculateEISFrequency(config);
 
-    final progress = _sampleIndex / 100.0;
+    final impedance = _calculateEISImpedance(frequency);
 
-    final signal = 0.5 * exp(-progress * 0.03);
+    final voltageAmplitude = config.amplitude / 1000.0;
 
-    final noise = (_random.nextDouble() - 0.5) * 0.02;
+    final currentAmplitude = voltageAmplitude / max(impedance, 0.001);
 
-    return signal + noise;
+    final noise = (_random.nextDouble() - 0.5) * currentAmplitude * 0.05;
+
+    return currentAmplitude + noise;
+  }
+
+  // ============================================================
+  // EIS FREQUENCY
+  // ============================================================
+
+  double _calculateEISFrequency(MeasurementConfig config) {
+    if (config.sweepPoints <= 1) {
+      return config.startFrequency;
+    }
+
+    final start = max(config.startFrequency, 0.001);
+
+    final stop = max(config.stopFrequency, start);
+
+    final progress = _sampleIndex / (config.sweepPoints - 1);
+
+    final clampedProgress = progress.clamp(0.0, 1.0);
+
+    final logStart = log(start);
+    final logStop = log(stop);
+
+    return exp(logStart + (logStop - logStart) * clampedProgress);
+  }
+
+  // ============================================================
+  // EIS IMPEDANCE
+  // ============================================================
+
+  double _calculateEISImpedance(double frequency) {
+    const resistance = 100.0;
+
+    const capacitance = 0.000001;
+
+    final omega = 2 * pi * frequency;
+
+    final capacitiveReactance = 1.0 / max(omega * capacitance, 0.000001);
+
+    return sqrt(pow(resistance, 2) + pow(capacitiveReactance, 2));
+  }
+
+  // ============================================================
+  // EIS PHASE
+  // ============================================================
+
+  double _calculateEISPhase(double frequency) {
+    const resistance = 100.0;
+
+    const capacitance = 0.000001;
+
+    final omega = 2 * pi * frequency;
+
+    final reactance = 1.0 / max(omega * capacitance, 0.000001);
+
+    return -atan(reactance / resistance) * 180 / pi;
   }
 
   // ============================================================
@@ -303,9 +374,7 @@ class MeasurementService {
   // ============================================================
 
   void _updateCV(MeasurementConfig config, int sampleIntervalMs) {
-    final scanRate = config.scanRate; // mV/s
-
-    final voltageStep = scanRate * (sampleIntervalMs / 1000.0);
+    final voltageStep = config.scanRate * (sampleIntervalMs / 1000.0);
 
     if (!_reverse) {
       _voltage += voltageStep;
@@ -343,6 +412,8 @@ class MeasurementService {
     _voltage += voltageStep;
 
     if (_voltage >= config.endVoltage) {
+      _voltage = config.endVoltage;
+
       if (_cycle >= config.cycles) {
         stopMeasurement();
         return;
@@ -359,11 +430,17 @@ class MeasurementService {
   // ============================================================
 
   void _updateASV(MeasurementConfig config, int sampleIntervalMs) {
-    if (config.useDeposition && _asvPhase == 'deposition') {
-      _elapsedMilliseconds += sampleIntervalMs;
+    // ----------------------------------------------------------
+    // DEPOSITION
+    // ----------------------------------------------------------
 
-      if (_elapsedMilliseconds >= config.depositionTime) {
-        _elapsedMilliseconds = 0;
+    if (config.useDeposition && _asvPhase == 'deposition') {
+      _elapsedSeconds += sampleIntervalMs / 1000.0;
+
+      _voltage = config.depositionVoltage;
+
+      if (_elapsedSeconds >= config.depositionTime / 1000.0) {
+        _elapsedSeconds = 0.0;
 
         _asvPhase = 'cleaning';
       }
@@ -371,11 +448,17 @@ class MeasurementService {
       return;
     }
 
-    if (_asvPhase == 'cleaning') {
-      _elapsedMilliseconds += sampleIntervalMs;
+    // ----------------------------------------------------------
+    // CLEANING
+    // ----------------------------------------------------------
 
-      if (_elapsedMilliseconds >= config.cleaningTime) {
-        _elapsedMilliseconds = 0;
+    if (_asvPhase == 'cleaning') {
+      _elapsedSeconds += sampleIntervalMs / 1000.0;
+
+      _voltage = config.cleaningVoltage;
+
+      if (_elapsedSeconds >= config.cleaningTime / 1000.0) {
+        _elapsedSeconds = 0.0;
 
         _asvPhase = 'equilibrium';
       }
@@ -383,11 +466,17 @@ class MeasurementService {
       return;
     }
 
-    if (_asvPhase == 'equilibrium') {
-      _elapsedMilliseconds += sampleIntervalMs;
+    // ----------------------------------------------------------
+    // EQUILIBRIUM
+    // ----------------------------------------------------------
 
-      if (_elapsedMilliseconds >= config.equilibriumTime) {
-        _elapsedMilliseconds = 0;
+    if (_asvPhase == 'equilibrium') {
+      _elapsedSeconds += sampleIntervalMs / 1000.0;
+
+      _voltage = config.equilibriumVoltage;
+
+      if (_elapsedSeconds >= config.equilibriumTime / 1000.0) {
+        _elapsedSeconds = 0.0;
 
         _asvPhase = 'stripping';
 
@@ -397,12 +486,17 @@ class MeasurementService {
       return;
     }
 
-    // Stripping scan
+    // ----------------------------------------------------------
+    // STRIPPING
+    // ----------------------------------------------------------
+
     final voltageStep = config.scanRate * (sampleIntervalMs / 1000.0);
 
     _voltage += voltageStep;
 
     if (_voltage >= config.endVoltage) {
+      _voltage = config.endVoltage;
+
       if (_cycle >= config.cycles) {
         stopMeasurement();
         return;
@@ -419,13 +513,13 @@ class MeasurementService {
   // ============================================================
 
   void _updateCA(MeasurementConfig config, int sampleIntervalMs) {
-    _elapsedMilliseconds += sampleIntervalMs;
+    _elapsedSeconds += sampleIntervalMs / 1000.0;
 
     _voltage = config.appliedVoltage;
 
-    final maxTime = config.timeRun * 1000;
+    final maxTime = config.timeRun.toDouble();
 
-    if (_elapsedMilliseconds >= maxTime) {
+    if (_elapsedSeconds >= maxTime) {
       stopMeasurement();
     }
   }
@@ -435,9 +529,11 @@ class MeasurementService {
   // ============================================================
 
   void _updateEIS(MeasurementConfig config) {
-    _sampleIndex++;
+    final pointsPerSweep = max(config.sweepPoints, 1);
 
-    final totalPoints = config.sweepPoints * max(1, config.repeatTimes);
+    final totalPoints = pointsPerSweep * max(config.repeatTimes, 1);
+
+    _sampleIndex++;
 
     if (_sampleIndex >= totalPoints) {
       stopMeasurement();
@@ -450,6 +546,7 @@ class MeasurementService {
 
   void stopMeasurement() {
     _timer?.cancel();
+
     _timer = null;
 
     final controller = _controller;
