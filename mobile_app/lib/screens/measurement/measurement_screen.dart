@@ -25,6 +25,7 @@ import '../../services/prediction_service.dart';
 import '../../models/measurement_record.dart';
 
 import '../../services/measurement_history_service.dart';
+import '../../models/measuremen_session.dart';
 
 class MeasurementScreen extends StatefulWidget {
   final MeasurementConfig config;
@@ -51,8 +52,10 @@ class _MeasurementScreenState extends State<MeasurementScreen> {
 
   final MeasurementHistoryService _historyService = MeasurementHistoryService();
 
-  final List<FlSpot> _spots = [];
-  final List<ElectrochemicalData> _measurementData = [];
+  final List<MeasurementRecord> _measurements = [];
+  final List<List<FlSpot>> _allSpots = [];
+  List<FlSpot> _currentSpots = [];
+  final List<ElectrochemicalData> _currentMeasurementData = [];
 
   StreamSubscription<ElectrochemicalData>? _subscription;
 
@@ -60,6 +63,12 @@ class _MeasurementScreenState extends State<MeasurementScreen> {
 
   int sampleCount = 0;
   int totalSamples = 1;
+
+  int _measurementNumber = 1;
+
+  bool _isMeasuring = false;
+
+  bool _sessionCompleted = false;
 
   int _estimateTotalSamples() {
     final config = widget.config;
@@ -136,82 +145,110 @@ class _MeasurementScreenState extends State<MeasurementScreen> {
   @override
   void initState() {
     super.initState();
-
+    totalSamples = _estimateTotalSamples();
     _startMeasurement();
   }
 
   void _startMeasurement() {
-    _spots.clear();
-    _measurementData.clear();
+    _currentSpots = [];
+    _currentMeasurementData.clear();
 
     sampleCount = 0;
     progress = 0.0;
-    totalSamples = _estimateTotalSamples();
+    _prediction = null;
 
-    _subscription = _measurementService.startMeasurement(widget.config).listen(
-      (data) {
-        setState(() {
-          // Lưu dữ liệu gốc
-          _measurementData.add(data);
+    setState(() {
+      _isMeasuring = true;
+    });
 
-          // Dữ liệu dùng để vẽ biểu đồ
-          _spots.add(FlSpot(data.voltage, data.current));
+    _subscription?.cancel();
 
-          sampleCount++;
+    _subscription = _measurementService.startMeasurement(widget.config).listen((
+      data,
+    ) {
+      if (!mounted) return;
 
-          progress = (sampleCount / totalSamples).clamp(0.0, 1.0);
-        });
-      },
+      setState(() {
+        _currentMeasurementData.add(data);
 
-      // Khi Stream kết thúc
-      onDone: _measurementCompleted,
-    );
+        _currentSpots.add(FlSpot(data.voltage, data.current));
+
+        sampleCount++;
+
+        progress = (sampleCount / totalSamples).clamp(0.0, 1.0);
+      });
+    }, onDone: _measurementCompleted);
   }
 
   void _measurementCompleted() {
     if (!mounted) return;
 
-    // 1. Detect peak
-    final peak = _peakDetectionService.detectPeak(_measurementData);
+    if (_currentMeasurementData.isEmpty) {
+      setState(() {
+        _isMeasuring = false;
+      });
 
-    // 2. Extract signal features
-    final signalFeatures = _signalFeatureService.extract(_measurementData);
+      return;
+    }
 
-    // 3. Extract physics features
+    // ============================================================
+    // 1. DETECT PEAK
+    // ============================================================
+
+    final peak = _peakDetectionService.detectPeak(_currentMeasurementData);
+
+    // ============================================================
+    // 2. SIGNAL FEATURES
+    // ============================================================
+
+    final signalFeatures = _signalFeatureService.extract(
+      _currentMeasurementData,
+    );
+
+    // ============================================================
+    // 3. PHYSICS FEATURES
+    // ============================================================
+
     final physicsFeatures = _physicsFeatureService.extract(
-      data: _measurementData,
+      data: _currentMeasurementData,
       peak: peak,
     );
 
-    // 4. Build feature vector
+    // ============================================================
+    // 4. FEATURE VECTOR
+    // ============================================================
+
     final featureVector = _featureVectorService.build(
       signal: signalFeatures,
       physics: physicsFeatures,
     );
 
-    // 5. Prediction
+    // ============================================================
+    // 5. PREDICTION
+    // ============================================================
+
     final prediction = _predictionService.predict(
       featureVector: featureVector.values,
       signalFeatures: signalFeatures,
       physicsFeatures: physicsFeatures,
     );
 
-    setState(() {
-      _prediction = prediction;
-    });
+    // ============================================================
+    // 6. CREATE MEASUREMENT RECORD
+    // ============================================================
 
-    // 6. Create complete measurement record
     final record = MeasurementRecord(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       timestamp: DateTime.now(),
 
       method: widget.config.method,
+
       startVoltage: widget.config.startVoltage,
       endVoltage: widget.config.endVoltage,
       scanRate: widget.config.scanRate,
       cycles: widget.config.cycles,
 
-      data: List.unmodifiable(_measurementData),
+      data: List.unmodifiable(_currentMeasurementData),
 
       peak: peak,
       signalFeatures: signalFeatures,
@@ -224,24 +261,80 @@ class _MeasurementScreenState extends State<MeasurementScreen> {
       concentration: prediction.concentration,
     );
 
-    // Lưu phép đo vào history
-    _historyService.addRecord(record);
+    // ============================================================
+    // 7. SAVE COMPLETED MEASUREMENT
+    // ============================================================
 
-    // Debug
-    debugPrint('===== FEATURE VECTOR =====');
-    debugPrint('Length: ${record.featureVector.length}');
-    debugPrint(record.featureVector.values.toString());
+    _measurements.add(record);
 
-    debugPrint('===== PREDICTION =====');
+    _allSpots.add(List.unmodifiable(_currentSpots));
+
+    // ============================================================
+    // 8. UPDATE UI
+    // ============================================================
+
+    setState(() {
+      _isMeasuring = false;
+    });
+
+    debugPrint('Measurement $_measurementNumber completed');
+
+    debugPrint('Feature vector length: ${record.featureVector.length}');
+
     debugPrint('Substance: ${record.substance}');
-    debugPrint('Confidence: ${record.confidence}');
-    debugPrint('Concentration: ${record.concentration}');
 
-    // 7. Go to result screen
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => ResultScreen(record: record)),
+    debugPrint('Confidence: ${record.confidence}');
+
+    debugPrint('Concentration: ${record.concentration}');
+  }
+
+  void _startNextMeasurement() {
+    if (_isMeasuring) return;
+
+    setState(() {
+      _measurementNumber++;
+      progress = 0.0;
+      sampleCount = 0;
+    });
+
+    _startMeasurement();
+  }
+
+  void _finishSession() {
+    if (_measurements.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Chưa có phép đo nào trong session')),
+      );
+
+      return;
+    }
+
+    final session = MeasurementSession(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      timestamp: DateTime.now(),
+      method: widget.config.method,
+      measurements: List.unmodifiable(_measurements),
     );
+
+    debugPrint('===== MEASUREMENT SESSION =====');
+    debugPrint('Session ID: ${session.id}');
+    debugPrint('Method: ${session.method}');
+    debugPrint('Measurement count: ${session.measurementCount}');
+
+    for (int i = 0; i < session.measurements.length; i++) {
+      final measurement = session.measurements[i];
+
+      debugPrint(
+        'Measurement ${i + 1}: '
+        '${measurement.substance}, '
+        'confidence=${measurement.confidence}, '
+        'concentration=${measurement.concentration}',
+      );
+    }
+
+    setState(() {
+      _sessionCompleted = true;
+    });
   }
 
   void _stopMeasurement() {
@@ -290,6 +383,14 @@ class _MeasurementScreenState extends State<MeasurementScreen> {
 
               const SizedBox(height: 8),
 
+              Text(
+                'Measurement $_measurementNumber',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
               // Khoảng điện thế
               Text(
                 'Potential: '
@@ -325,7 +426,7 @@ class _MeasurementScreenState extends State<MeasurementScreen> {
               const SizedBox(height: 10),
 
               VoltammogramChart(
-                spots: _spots,
+                spots: _currentSpots,
                 startVoltage: widget.config.startVoltage,
                 endVoltage: widget.config.endVoltage,
                 method: widget.config.method,
@@ -392,6 +493,33 @@ class _MeasurementScreenState extends State<MeasurementScreen> {
               ),
 
               const SizedBox(height: 20),
+
+              if (!_isMeasuring && _measurements.isNotEmpty)
+                Column(
+                  children: [
+                    const SizedBox(height: 12),
+
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _startNextMeasurement,
+                        icon: const Icon(Icons.add),
+                        label: const Text('Đo lần tiếp theo'),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _finishSession,
+                        icon: const Icon(Icons.check),
+                        label: const Text('Kết thúc session'),
+                      ),
+                    ),
+                  ],
+                ),
 
               MeasurementControls(onStop: _stopMeasurement),
             ],
