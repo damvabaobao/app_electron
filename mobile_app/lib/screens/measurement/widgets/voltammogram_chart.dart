@@ -2,7 +2,8 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 class VoltammogramChart extends StatelessWidget {
-  final List<FlSpot> spots;
+  final List<List<FlSpot>> allSpots;
+  final List<FlSpot> currentSpots;
 
   final double startVoltage;
   final double endVoltage;
@@ -11,7 +12,8 @@ class VoltammogramChart extends StatelessWidget {
 
   const VoltammogramChart({
     super.key,
-    required this.spots,
+    required this.allSpots,
+    required this.currentSpots,
     required this.startVoltage,
     required this.endVoltage,
     required this.method,
@@ -19,8 +21,16 @@ class VoltammogramChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final xRange = _calculateXRange();
-    final yRange = _calculateYRange();
+    final combinedSpots = <FlSpot>[];
+
+    for (final measurement in allSpots) {
+      combinedSpots.addAll(measurement);
+    }
+
+    combinedSpots.addAll(currentSpots);
+
+    final xRange = _calculateXRange(combinedSpots);
+    final yRange = _calculateYRange(combinedSpots);
 
     return Container(
       height: 320,
@@ -34,7 +44,6 @@ class VoltammogramChart extends StatelessWidget {
         LineChartData(
           minX: xRange.min,
           maxX: xRange.max,
-
           minY: yRange.min,
           maxY: yRange.max,
 
@@ -56,7 +65,6 @@ class VoltammogramChart extends StatelessWidget {
             topTitles: const AxisTitles(
               sideTitles: SideTitles(showTitles: false),
             ),
-
             rightTitles: const AxisTitles(
               sideTitles: SideTitles(showTitles: false),
             ),
@@ -74,7 +82,7 @@ class VoltammogramChart extends StatelessWidget {
                   return SideTitleWidget(
                     meta: meta,
                     child: Text(
-                      value.toStringAsFixed(1),
+                      value.toStringAsFixed(0),
                       style: const TextStyle(fontSize: 10),
                     ),
                   );
@@ -109,30 +117,92 @@ class VoltammogramChart extends StatelessWidget {
             border: Border.all(color: Colors.grey.shade400),
           ),
 
-          lineBarsData: [
-            LineChartBarData(
-              spots: spots,
-
-              isCurved: true,
-
-              curveSmoothness: 0.15,
-
-              barWidth: 2.5,
-
-              isStrokeCapRound: true,
-
-              dotData: const FlDotData(show: false),
-
-              belowBarData: BarAreaData(show: false),
-            ),
-          ],
+          lineBarsData: _buildLineBars(),
         ),
       ),
     );
   }
-  // X RANGE
 
-  _ChartRange _calculateXRange() {
+  // ============================================================
+  // BUILD MULTIPLE MEASUREMENT LINES
+  // ============================================================
+
+  List<LineChartBarData> _buildLineBars() {
+    final lines = <LineChartBarData>[];
+
+    final colors = [
+      Colors.blue,
+      Colors.red,
+      Colors.green,
+      Colors.orange,
+      Colors.purple,
+      Colors.teal,
+      Colors.pink,
+      Colors.brown,
+    ];
+
+    // ------------------------------------------------------------
+    // COMPLETED MEASUREMENTS
+    // ------------------------------------------------------------
+
+    for (int i = 0; i < allSpots.length; i++) {
+      final measurement = allSpots[i];
+
+      if (measurement.isEmpty) {
+        continue;
+      }
+
+      final color = colors[i % colors.length];
+
+      lines.add(
+        LineChartBarData(
+          spots: measurement,
+          isCurved: true,
+          curveSmoothness: 0.15,
+          barWidth: 2.5,
+          isStrokeCapRound: true,
+
+          color: color,
+
+          dotData: const FlDotData(show: false),
+
+          belowBarData: BarAreaData(show: false),
+        ),
+      );
+    }
+
+    // ------------------------------------------------------------
+    // CURRENT MEASUREMENT
+    // ------------------------------------------------------------
+
+    if (currentSpots.isNotEmpty) {
+      final currentColor = colors[allSpots.length % colors.length];
+
+      lines.add(
+        LineChartBarData(
+          spots: currentSpots,
+          isCurved: true,
+          curveSmoothness: 0.15,
+          barWidth: 3,
+          isStrokeCapRound: true,
+
+          color: currentColor,
+
+          dotData: const FlDotData(show: false),
+
+          belowBarData: BarAreaData(show: false),
+        ),
+      );
+    }
+
+    return lines;
+  }
+
+  // ============================================================
+  // X RANGE
+  // ============================================================
+
+  _ChartRange _calculateXRange(List<FlSpot> spots) {
     if (spots.isEmpty) {
       final minX = startVoltage < endVoltage ? startVoltage : endVoltage;
 
@@ -158,8 +228,6 @@ class VoltammogramChart extends StatelessWidget {
       }
     }
 
-    // Giữ một khoảng nhỏ ở hai bên để đường đo
-    // không chạm sát mép biểu đồ.
     final range = maxX - minX;
 
     if (range <= 0) {
@@ -170,9 +238,12 @@ class VoltammogramChart extends StatelessWidget {
 
     return _ChartRange(min: minX - padding, max: maxX + padding);
   }
-  // Y RANGE
 
-  _ChartRange _calculateYRange() {
+  // ============================================================
+  // Y RANGE
+  // ============================================================
+
+  _ChartRange _calculateYRange(List<FlSpot> spots) {
     if (spots.isEmpty) {
       return const _ChartRange(min: 0, max: 1);
     }
@@ -190,7 +261,6 @@ class VoltammogramChart extends StatelessWidget {
       }
     }
 
-    // Trường hợp toàn bộ current bằng nhau.
     if (minY == maxY) {
       final padding = maxY.abs() * 0.2;
 
@@ -201,13 +271,14 @@ class VoltammogramChart extends StatelessWidget {
     }
 
     final range = maxY - minY;
-
-    // Tạo khoảng trống phía trên và phía dưới.
     final padding = range * 0.10;
 
     return _ChartRange(min: minY - padding, max: maxY + padding);
   }
+
+  // ============================================================
   // GRID INTERVAL
+  // ============================================================
 
   double _calculateHorizontalInterval(double minY, double maxY) {
     final range = maxY - minY;
@@ -286,7 +357,9 @@ class VoltammogramChart extends StatelessWidget {
   }
 }
 
-// SIMPLE RANGE MODEL
+// ============================================================
+// RANGE MODEL
+// ============================================================
 
 class _ChartRange {
   final double min;

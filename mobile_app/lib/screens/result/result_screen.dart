@@ -1,24 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+
 import '../measurement/widgets/voltammogram_chart.dart';
 
-import '../../models/electrochemical_data.dart';
-import '../../models/peak_result.dart';
-
-import '../../models/signal_features.dart';
-
-import '../../models/physics_features.dart';
-import '../../services/prediction_service.dart';
-
 import '../../models/measurement_record.dart';
+import '../../models/measuremen_session.dart';
 
 class ResultScreen extends StatelessWidget {
-  final MeasurementRecord record;
+  final MeasurementSession session;
 
-  const ResultScreen({super.key, required this.record});
+  const ResultScreen({super.key, required this.session});
+
+  // ============================================================
+  // BUILD
+  // ============================================================
 
   @override
   Widget build(BuildContext context) {
+    if (session.measurements.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Measurement Result'),
+          centerTitle: true,
+        ),
+        body: const Center(child: Text('Không có dữ liệu đo.')),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Measurement Result'),
@@ -32,34 +40,36 @@ class ResultScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
 
           children: [
-            _buildStatusCard(),
+            // ====================================================
+            // SESSION SUMMARY
+            // ====================================================
+            _buildSessionStatusCard(),
 
             const SizedBox(height: 20),
 
-            _buildMeasurementInfo(),
+            _buildSessionInfo(),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
-            _buildPredictionCard(),
+            // ====================================================
+            // EACH MEASUREMENT
+            // ====================================================
+            for (int i = 0; i < session.measurements.length; i++) ...[
+              _buildMeasurementSection(session.measurements[i], i),
 
-            const SizedBox(height: 20),
+              const SizedBox(height: 24),
+            ],
 
-            _buildPeakCard(),
-
-            const SizedBox(height: 20),
-
-            _buildSignalFeaturesCard(),
-
-            const SizedBox(height: 20),
-
+            // ====================================================
+            // COMBINED VOLTAMMOGRAM
+            // ====================================================
             _buildVoltammogram(),
 
             const SizedBox(height: 20),
 
-            _buildPhysicsFeaturesCard(),
-
-            const SizedBox(height: 20),
-
+            // ====================================================
+            // COMPLETE
+            // ====================================================
             SizedBox(
               width: double.infinity,
               height: 50,
@@ -83,7 +93,16 @@ class ResultScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusCard() {
+  // ============================================================
+  // SESSION STATUS
+  // ============================================================
+
+  Widget _buildSessionStatusCard() {
+    final totalSamples = session.measurements.fold<int>(
+      0,
+      (sum, measurement) => sum + measurement.data.length,
+    );
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -94,19 +113,24 @@ class ResultScreen extends StatelessWidget {
 
             const SizedBox(width: 12),
 
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
 
-              children: [
-                const Text(
-                  'Measurement Completed',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
+                children: [
+                  const Text(
+                    'Measurement Session Completed',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
 
-                const SizedBox(height: 4),
+                  const SizedBox(height: 6),
 
-                Text('${record.data.length} samples collected'),
-              ],
+                  Text(
+                    '${session.measurementCount} measurements • '
+                    '$totalSamples samples',
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -114,7 +138,93 @@ class ResultScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildMeasurementInfo() {
+  // ============================================================
+  // SESSION INFORMATION
+  // ============================================================
+
+  Widget _buildSessionInfo() {
+    final firstMeasurement = session.measurements.first;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+
+          children: [
+            const Text(
+              'Session Information',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+
+            const SizedBox(height: 12),
+
+            _infoRow('Method', session.method),
+
+            _infoRow('Measurements', session.measurementCount.toString()),
+
+            _infoRow(
+              'Start Voltage',
+              '${firstMeasurement.startVoltage.toStringAsFixed(2)} V',
+            ),
+
+            _infoRow(
+              'End Voltage',
+              '${firstMeasurement.endVoltage.toStringAsFixed(2)} V',
+            ),
+
+            _infoRow('Scan Rate', '${firstMeasurement.scanRate} mV/s'),
+
+            _infoRow('Cycles', firstMeasurement.cycles.toString()),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // ONE MEASUREMENT SECTION
+  // ============================================================
+
+  Widget _buildMeasurementSection(MeasurementRecord record, int index) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+
+      children: [
+        Text(
+          'Measurement ${index + 1}',
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+        ),
+
+        const SizedBox(height: 12),
+
+        _buildMeasurementInfo(record),
+
+        const SizedBox(height: 16),
+
+        _buildPredictionCard(record),
+
+        const SizedBox(height: 16),
+
+        _buildPeakCard(record),
+
+        const SizedBox(height: 16),
+
+        _buildSignalFeaturesCard(record),
+
+        const SizedBox(height: 16),
+
+        _buildPhysicsFeaturesCard(record),
+      ],
+    );
+  }
+
+  // ============================================================
+  // MEASUREMENT INFORMATION
+  // ============================================================
+
+  Widget _buildMeasurementInfo(MeasurementRecord record) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -130,23 +240,32 @@ class ResultScreen extends StatelessWidget {
 
             const SizedBox(height: 12),
 
-            _infoRow('Method', record.method),
-
             _infoRow('Samples', record.data.length.toString()),
 
             if (record.data.isNotEmpty)
               _infoRow(
                 'Potential Range',
-                '${record.data.first.voltage.toStringAsFixed(2)} V → '
+                '${record.data.first.voltage.toStringAsFixed(2)} V'
+                    ' → '
                     '${record.data.last.voltage.toStringAsFixed(2)} V',
               ),
+
+            _infoRow('Scan Rate', '${record.scanRate} mV/s'),
+
+            _infoRow('Cycles', record.cycles.toString()),
+
+            _infoRow('Measurement ID', record.id),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildPredictionCard() {
+  // ============================================================
+  // AI PREDICTION
+  // ============================================================
+
+  Widget _buildPredictionCard(MeasurementRecord record) {
     final confidence = record.confidence.clamp(0.0, 1.0);
 
     return Card(
@@ -157,9 +276,9 @@ class ResultScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
 
           children: [
-            const Text(
+            Text(
               'AI Prediction',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
 
             const SizedBox(height: 16),
@@ -172,7 +291,8 @@ class ResultScreen extends StatelessWidget {
             const SizedBox(height: 8),
 
             Text(
-              'Confidence: ${(confidence * 100).toStringAsFixed(0)}%',
+              'Confidence: '
+              '${(confidence * 100).toStringAsFixed(0)}%',
               style: const TextStyle(fontSize: 16),
             ),
 
@@ -197,15 +317,22 @@ class ResultScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildPeakCard() {
+  // ============================================================
+  // PEAK INFORMATION
+  // ============================================================
+
+  Widget _buildPeakCard(MeasurementRecord record) {
     if (record.peak == null) {
       return const Card(
         child: Padding(
           padding: EdgeInsets.all(16),
+
           child: Text('Không phát hiện được peak.'),
         ),
       );
     }
+
+    final peak = record.peak!;
 
     return Card(
       child: Padding(
@@ -224,36 +351,35 @@ class ResultScreen extends StatelessWidget {
 
             _infoRow(
               'Peak Potential',
-              '${record.peak!.peakVoltage.toStringAsFixed(3)} V',
+              '${peak.peakVoltage.toStringAsFixed(3)} V',
             ),
 
             _infoRow(
               'Peak Current',
-              '${record.peak!.peakCurrent.toStringAsFixed(4)} µA',
+              '${peak.peakCurrent.toStringAsFixed(4)} µA',
             ),
 
-            _infoRow(
-              'Peak Width',
-              '${record.peak!.peakWidth.toStringAsFixed(3)} V',
-            ),
+            _infoRow('Peak Width', '${peak.peakWidth.toStringAsFixed(3)} V'),
 
-            _infoRow('Peak Area', record.peak!.peakArea.toStringAsFixed(4)),
+            _infoRow('Peak Area', peak.peakArea.toStringAsFixed(4)),
 
-            _infoRow(
-              'Peak Prominence',
-              record.peak!.peakProminence.toStringAsFixed(4),
-            ),
+            _infoRow('Peak Prominence', peak.peakProminence.toStringAsFixed(4)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSignalFeaturesCard() {
+  // ============================================================
+  // SIGNAL FEATURES
+  // ============================================================
+
+  Widget _buildSignalFeaturesCard(MeasurementRecord record) {
     if (record.signalFeatures == null) {
       return const Card(
         child: Padding(
           padding: EdgeInsets.all(16),
+
           child: Text('Chưa có signal features.'),
         ),
       );
@@ -264,8 +390,10 @@ class ResultScreen extends StatelessWidget {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
+
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+
           children: [
             const Text(
               'Signal Features',
@@ -303,11 +431,16 @@ class ResultScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildPhysicsFeaturesCard() {
+  // ============================================================
+  // PHYSICS FEATURES
+  // ============================================================
+
+  Widget _buildPhysicsFeaturesCard(MeasurementRecord record) {
     if (record.physicsFeatures == null) {
       return const Card(
         child: Padding(
           padding: EdgeInsets.all(16),
+
           child: Text('Chưa có physics features.'),
         ),
       );
@@ -318,8 +451,10 @@ class ResultScreen extends StatelessWidget {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
+
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+
           children: [
             const Text(
               'Physics Features',
@@ -354,39 +489,109 @@ class ResultScreen extends StatelessWidget {
     );
   }
 
+  // ============================================================
+  // COMBINED VOLTAMMOGRAM
+  // ============================================================
+
   Widget _buildVoltammogram() {
-    if (record.data.isEmpty) {
+    if (session.measurements.isEmpty) {
       return const Card(
         child: Padding(
           padding: EdgeInsets.all(16),
+
           child: Text('Không có dữ liệu voltammogram.'),
         ),
       );
     }
 
-    final spots = record.data
-        .map((point) => FlSpot(point.voltage, point.current))
-        .toList();
+    final allSpots = <List<FlSpot>>[];
+
+    for (final measurement in session.measurements) {
+      final spots = measurement.data
+          .map((point) => FlSpot(point.voltage, point.current))
+          .toList();
+
+      if (spots.isNotEmpty) {
+        allSpots.add(spots);
+      }
+    }
+
+    final firstMeasurement = session.measurements.first;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+
       children: [
         const Text(
-          'Voltammogram',
+          'Combined Voltammogram',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
 
         const SizedBox(height: 10),
 
         VoltammogramChart(
-          spots: spots,
-          startVoltage: record.startVoltage,
-          endVoltage: record.endVoltage,
-          method: record.method,
+          allSpots: allSpots,
+          currentSpots: const [],
+          startVoltage: firstMeasurement.startVoltage,
+          endVoltage: firstMeasurement.endVoltage,
+          method: session.method,
         ),
+
+        const SizedBox(height: 12),
+
+        _buildMeasurementLegend(),
       ],
     );
   }
+
+  // ============================================================
+  // MEASUREMENT LEGEND
+  // ============================================================
+
+  Widget _buildMeasurementLegend() {
+    final colors = [
+      Colors.blue,
+      Colors.red,
+      Colors.green,
+      Colors.orange,
+      Colors.purple,
+      Colors.teal,
+      Colors.pink,
+      Colors.brown,
+    ];
+
+    return Wrap(
+      spacing: 16,
+      runSpacing: 8,
+
+      children: [
+        for (int i = 0; i < session.measurements.length; i++)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+
+            children: [
+              Container(
+                width: 14,
+                height: 14,
+
+                decoration: BoxDecoration(
+                  color: colors[i % colors.length],
+                  shape: BoxShape.circle,
+                ),
+              ),
+
+              const SizedBox(width: 6),
+
+              Text('Measurement ${i + 1}'),
+            ],
+          ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // INFO ROW
+  // ============================================================
 
   Widget _infoRow(String title, String value) {
     return Padding(
@@ -398,7 +603,16 @@ class ResultScreen extends StatelessWidget {
         children: [
           Text(title),
 
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(width: 12),
+
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
         ],
       ),
     );

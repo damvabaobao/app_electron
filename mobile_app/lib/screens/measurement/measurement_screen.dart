@@ -332,9 +332,11 @@ class _MeasurementScreenState extends State<MeasurementScreen> {
       );
     }
 
-    setState(() {
-      _sessionCompleted = true;
-    });
+    // Chuyển sang ResultScreen
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => ResultScreen(session: session)),
+    );
   }
 
   void _stopMeasurement() {
@@ -426,7 +428,8 @@ class _MeasurementScreenState extends State<MeasurementScreen> {
               const SizedBox(height: 10),
 
               VoltammogramChart(
-                spots: _currentSpots,
+                allSpots: _allSpots,
+                currentSpots: _currentSpots,
                 startVoltage: widget.config.startVoltage,
                 endVoltage: widget.config.endVoltage,
                 method: widget.config.method,

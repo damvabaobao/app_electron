@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../models/measurement_record.dart';
+import '../../models/measuremen_session.dart';
 import '../../services/measurement_history_service.dart';
 import '../result/result_screen.dart';
+import '../../models/measurement_record.dart';
 
 class HistoryScreen extends StatelessWidget {
   const HistoryScreen({super.key});
@@ -11,7 +12,7 @@ class HistoryScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final historyService = MeasurementHistoryService();
 
-    final records = historyService.records;
+    final sessions = historyService.sessions;
 
     return Scaffold(
       appBar: AppBar(
@@ -19,7 +20,7 @@ class HistoryScreen extends StatelessWidget {
         centerTitle: true,
       ),
 
-      body: records.isEmpty
+      body: sessions.isEmpty
           ? const Center(
               child: Text(
                 'Chưa có phép đo nào.',
@@ -28,18 +29,31 @@ class HistoryScreen extends StatelessWidget {
             )
           : ListView.separated(
               padding: const EdgeInsets.all(16),
-              itemCount: records.length,
+              itemCount: sessions.length,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final record = records[index];
 
-                return _buildHistoryCard(context, record);
+              itemBuilder: (context, index) {
+                final session = sessions[index];
+
+                return _buildHistoryCard(context, session);
               },
             ),
     );
   }
 
-  Widget _buildHistoryCard(BuildContext context, MeasurementRecord record) {
+  // ============================================================
+  // HISTORY CARD
+  // ============================================================
+
+  Widget _buildHistoryCard(BuildContext context, MeasurementSession session) {
+    final firstMeasurement = session.measurements.isNotEmpty
+        ? session.measurements.first
+        : null;
+
+    final totalSamples = session.measurements.fold<int>(0, (sum, measurement) {
+      return sum + measurement.data.length;
+    });
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -48,6 +62,9 @@ class HistoryScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
 
           children: [
+            // ====================================================
+            // HEADER
+            // ====================================================
             Row(
               children: [
                 const Icon(Icons.science, size: 30),
@@ -56,42 +73,57 @@ class HistoryScreen extends StatelessWidget {
 
                 Expanded(
                   child: Text(
-                    record.substance,
+                    'Measurement Session',
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
-
-                Text(
-                  '${(record.confidence * 100).toStringAsFixed(0)}%',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
               ],
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
 
-            Text(
-              'Concentration: '
-              '${record.concentration.toStringAsFixed(2)} µM',
-            ),
-
-            const SizedBox(height: 6),
-
-            Text('Method: ${record.method}'),
+            // ====================================================
+            // SESSION INFORMATION
+            // ====================================================
+            Text('Method: ${session.method}'),
 
             const SizedBox(height: 6),
 
-            Text('Samples: ${record.data.length}'),
+            Text('Measurements: ${session.measurementCount}'),
 
             const SizedBox(height: 6),
 
-            Text('Time: ${_formatDate(record.timestamp)}'),
+            Text('Total samples: $totalSamples'),
+
+            if (firstMeasurement != null) ...[
+              const SizedBox(height: 6),
+
+              Text('Scan Rate: ${firstMeasurement.scanRate} mV/s'),
+
+              const SizedBox(height: 6),
+
+              Text('Cycles: ${firstMeasurement.cycles}'),
+            ],
+
+            const SizedBox(height: 6),
+
+            Text('Time: ${_formatDate(session.timestamp)}'),
 
             const SizedBox(height: 14),
 
+            // ====================================================
+            // MEASUREMENT SUMMARY
+            // ====================================================
+            _buildMeasurementSummary(session),
+
+            const SizedBox(height: 16),
+
+            // ====================================================
+            // VIEW RESULT BUTTON
+            // ====================================================
             SizedBox(
               width: double.infinity,
 
@@ -100,7 +132,7 @@ class HistoryScreen extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => ResultScreen(record: record),
+                      builder: (context) => ResultScreen(session: session),
                     ),
                   );
                 },
@@ -115,6 +147,81 @@ class HistoryScreen extends StatelessWidget {
       ),
     );
   }
+
+  // ============================================================
+  // MEASUREMENT SUMMARY
+  // ============================================================
+
+  Widget _buildMeasurementSummary(MeasurementSession session) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(10),
+      ),
+
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+
+        children: [
+          const Text(
+            'Measurements in this session',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+
+          const SizedBox(height: 10),
+
+          for (int i = 0; i < session.measurements.length; i++)
+            _buildMeasurementRow(session.measurements[i], i),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // ONE MEASUREMENT ROW
+  // ============================================================
+
+  Widget _buildMeasurementRow(MeasurementRecord measurement, int index) {
+    final colors = [
+      Colors.blue,
+      Colors.red,
+      Colors.green,
+      Colors.orange,
+      Colors.purple,
+      Colors.teal,
+      Colors.pink,
+      Colors.brown,
+    ];
+
+    final color = colors[index % colors.length];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+
+      child: Row(
+        children: [
+          Container(
+            width: 12,
+            height: 12,
+
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+
+          const SizedBox(width: 8),
+
+          Expanded(child: Text('Measurement ${index + 1}')),
+
+          Text('${measurement.data.length} samples'),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // DATE FORMAT
+  // ============================================================
 
   String _formatDate(DateTime date) {
     return '${date.day.toString().padLeft(2, '0')}/'

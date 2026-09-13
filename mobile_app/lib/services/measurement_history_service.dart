@@ -1,4 +1,3 @@
-import '../models/measurement_record.dart';
 import '../models/measuremen_session.dart';
 
 class MeasurementHistoryService {
@@ -11,34 +10,29 @@ class MeasurementHistoryService {
 
   MeasurementHistoryService._internal();
 
-  final List<MeasurementRecord> _records = [];
   final List<MeasurementSession> _sessions = [];
-
-  List<MeasurementRecord> get records {
-    return List.unmodifiable(_records);
-  }
 
   List<MeasurementSession> get sessions {
     return List.unmodifiable(_sessions);
   }
 
-  void addRecord(MeasurementRecord record) {
-    _records.insert(0, record);
+  void addSession(MeasurementSession session) {
+    _sessions.insert(0, session);
   }
 
-  MeasurementRecord? getRecordById(String id) {
+  MeasurementSession? getSessionById(String id) {
     try {
-      return _records.firstWhere((record) => record.id == id);
+      return _sessions.firstWhere((session) => session.id == id);
     } catch (_) {
       return null;
     }
   }
 
-  void deleteRecord(String id) {
-    _records.removeWhere((record) => record.id == id);
+  void deleteSession(String id) {
+    _sessions.removeWhere((session) => session.id == id);
   }
 
   void clear() {
-    _records.clear();
+    _sessions.clear();
   }
 }
