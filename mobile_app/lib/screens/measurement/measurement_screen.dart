@@ -315,6 +315,7 @@ class _MeasurementScreenState extends State<MeasurementScreen> {
       method: widget.config.method,
       measurements: List.unmodifiable(_measurements),
     );
+    _historyService.addSession(session);
 
     debugPrint('===== MEASUREMENT SESSION =====');
     debugPrint('Session ID: ${session.id}');

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../models/measuremen_session.dart';
 import '../../services/measurement_history_service.dart';
 import '../result/result_screen.dart';
-import '../../models/measurement_record.dart';
 
 class HistoryScreen extends StatelessWidget {
   const HistoryScreen({super.key});
@@ -19,114 +18,85 @@ class HistoryScreen extends StatelessWidget {
         title: const Text('Measurement History'),
         centerTitle: true,
       ),
-
       body: sessions.isEmpty
           ? const Center(
               child: Text(
-                'Chưa có phép đo nào.',
+                'Chưa có session đo nào.',
                 style: TextStyle(fontSize: 16),
               ),
             )
           : ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: sessions.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-
+              separatorBuilder: (context, index) {
+                return const SizedBox(height: 12);
+              },
               itemBuilder: (context, index) {
                 final session = sessions[index];
 
-                return _buildHistoryCard(context, session);
+                return _buildSessionCard(context, session);
               },
             ),
     );
   }
 
-  // ============================================================
-  // HISTORY CARD
-  // ============================================================
+  Widget _buildSessionCard(BuildContext context, MeasurementSession session) {
+    final measurements = session.measurements;
 
-  Widget _buildHistoryCard(BuildContext context, MeasurementSession session) {
-    final firstMeasurement = session.measurements.isNotEmpty
-        ? session.measurements.first
-        : null;
-
-    final totalSamples = session.measurements.fold<int>(0, (sum, measurement) {
-      return sum + measurement.data.length;
-    });
+    final lastMeasurement = measurements.isNotEmpty ? measurements.last : null;
 
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
-
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-
           children: [
-            // ====================================================
-            // HEADER
-            // ====================================================
             Row(
               children: [
-                const Icon(Icons.science, size: 30),
+                const Icon(Icons.science, size: 32),
 
                 const SizedBox(width: 12),
 
                 Expanded(
-                  child: Text(
-                    'Measurement Session',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Session ${session.id}',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+
+                      const SizedBox(height: 4),
+
+                      Text('Method: ${session.method}'),
+                    ],
                   ),
                 ),
               ],
             ),
 
-            const SizedBox(height: 14),
-
-            // ====================================================
-            // SESSION INFORMATION
-            // ====================================================
-            Text('Method: ${session.method}'),
-
-            const SizedBox(height: 6),
-
-            Text('Measurements: ${session.measurementCount}'),
-
-            const SizedBox(height: 6),
-
-            Text('Total samples: $totalSamples'),
-
-            if (firstMeasurement != null) ...[
-              const SizedBox(height: 6),
-
-              Text('Scan Rate: ${firstMeasurement.scanRate} mV/s'),
-
-              const SizedBox(height: 6),
-
-              Text('Cycles: ${firstMeasurement.cycles}'),
-            ],
-
-            const SizedBox(height: 6),
-
-            Text('Time: ${_formatDate(session.timestamp)}'),
-
-            const SizedBox(height: 14),
-
-            // ====================================================
-            // MEASUREMENT SUMMARY
-            // ====================================================
-            _buildMeasurementSummary(session),
-
             const SizedBox(height: 16),
 
-            // ====================================================
-            // VIEW RESULT BUTTON
-            // ====================================================
+            _infoRow('Measurements', '${session.measurementCount} lần đo'),
+
+            _infoRow('Time', _formatDate(session.timestamp)),
+
+            if (lastMeasurement != null)
+              _infoRow('Last prediction', lastMeasurement.substance),
+
+            if (lastMeasurement != null)
+              _infoRow(
+                'Last confidence',
+                '${(lastMeasurement.confidence * 100).toStringAsFixed(0)}%',
+              ),
+
+            const SizedBox(height: 14),
+
             SizedBox(
               width: double.infinity,
-
               child: OutlinedButton.icon(
                 onPressed: () {
                   Navigator.push(
@@ -136,10 +106,8 @@ class HistoryScreen extends StatelessWidget {
                     ),
                   );
                 },
-
                 icon: const Icon(Icons.visibility),
-
-                label: const Text('Xem kết quả'),
+                label: const Text('Xem session'),
               ),
             ),
           ],
@@ -148,80 +116,27 @@ class HistoryScreen extends StatelessWidget {
     );
   }
 
-  // ============================================================
-  // MEASUREMENT SUMMARY
-  // ============================================================
-
-  Widget _buildMeasurementSummary(MeasurementSession session) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(10),
-      ),
-
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-
-        children: [
-          const Text(
-            'Measurements in this session',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-
-          const SizedBox(height: 10),
-
-          for (int i = 0; i < session.measurements.length; i++)
-            _buildMeasurementRow(session.measurements[i], i),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // ONE MEASUREMENT ROW
-  // ============================================================
-
-  Widget _buildMeasurementRow(MeasurementRecord measurement, int index) {
-    final colors = [
-      Colors.blue,
-      Colors.red,
-      Colors.green,
-      Colors.orange,
-      Colors.purple,
-      Colors.teal,
-      Colors.pink,
-      Colors.brown,
-    ];
-
-    final color = colors[index % colors.length];
-
+  Widget _infoRow(String title, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
-
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Container(
-            width: 12,
-            height: 12,
+          Text(title),
 
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          const SizedBox(width: 12),
+
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
-
-          const SizedBox(width: 8),
-
-          Expanded(child: Text('Measurement ${index + 1}')),
-
-          Text('${measurement.data.length} samples'),
         ],
       ),
     );
   }
-
-  // ============================================================
-  // DATE FORMAT
-  // ============================================================
 
   String _formatDate(DateTime date) {
     return '${date.day.toString().padLeft(2, '0')}/'
