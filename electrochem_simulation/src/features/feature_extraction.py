@@ -4,7 +4,7 @@ FEATURE_NAME = [ "meanCurrent", "stdCurrent", "maxCurrent", "minCurrent", "meanV
 
 def validate_input(voltage, current) :
         # Kiem tra du lieu dau vao
-        voltage = np.asarry(voltage, dtype = float)
+        voltage = np.asarray(voltage, dtype = float)
         current = np.asarray(current, dtype=float)
 
         if voltage.ndim != 1 or current.ndim != 1:
@@ -33,13 +33,13 @@ def calculate_basic_features(voltage, current):
 
 def calculate_gradient_features(voltage, current):
         # Tinh gradient cua dong dien theo dien the
+        
 
-        gradient = np.gradient(current, voltage)
-        features = {}
-        features["meanGradient"] = float (np.mean(gradient))
-        features["maxGradient"] = float(np.max(gradient))
-        features["voltageRange"] = float(np.max(voltage) - np.min(voltage))
-        return features
+        gradient = np.gradient(current)
+        features = {"meanGradient": float(np.mean(gradient)),
+                    "maxGradient": float(np.max(gradient)),
+                    "minGradient": float(np.min(gradient)),}
+        return features, gradient
 
 def find_main_peak(voltage, current):
         #Tim peak dua tren do lech khoi baseline
@@ -67,7 +67,7 @@ def calculate_peak_width(voltage, deviation, peak_index):
         while left_index > 0:
                 if abs_deviation[left_index] < half_level:
                         break
-        left_index -= 1
+                left_index -= 1
 
         right_index = peak_index
 
@@ -76,8 +76,8 @@ def calculate_peak_width(voltage, deviation, peak_index):
                         break
                 right_index += 1
 
-                width = abs(voltage[right_index] - voltage[left_index])
-                return float(width)
+        width = abs(voltage[right_index] - voltage[left_index])
+        return float(width)
 
 def calculate_peak_area(voltage, deviation, peak_index):
         #Tinh dien tich tuyet doi quanh peak chinh
@@ -124,7 +124,7 @@ def calculate_peak_symmetry(voltage, deviation, peak_index):
         while left_index > 0:
                 if abs_deviation[left_index] < half_level:
                         break
-                left_index = peak_index
+                left_index -= 1
 
         right_index = peak_index
         while right_index < len(abs_deviation) - 1:
@@ -154,5 +154,81 @@ def extract_feature(voltage, current):
 
         features.update(gradient_features)
         # 10 => 15
-        #
+        #Peak features
+        (peak_index, peak_current,peak_potential, baseline, deviation,) = find_main_peak(voltage, current)
+        features["peakCurrent"] = peak_current
+        features["peakPotential"] = peak_potential
+
+        features["peakWidth"] = calculate_peak_width(voltage, deviation, peak_index)
+        features["peakArea"] = calculate_peak_area(voltage, deviation,peak_index)
+        features["peakProminence"] = calculate_peak_prominence(deviation, peak_index)
+        features["peakSymmetry"] = calculate_peak_symmetry(voltage, deviation, peak_index)
+        return features
+
+def features_to_array(features):
+        # Chuyen dictionary features thanh numpy array theo dung thu tu
+
+        return np.array([features[name] for name in FEATURE_NAME],
+                        dtype = float
+                        )
+
+def print_features(features):
+        # In 15 features ra terminal
+
+        print("=" *70)
+        print("EXTRACTED FEATURES")
+        print("=" *70)
+
+        for index, name in enumerate(FEATURE_NAME, start=1):
+                print(f"{index:02d}."
+                      f"{name:<20}:"
+                      f"{features[name]:.8f}")
+
+        print("=" *70)
+
+# QUICK TEST
+if __name__ == "__main__":
+        import sys
+        from pathlib import Path
+
+        # Them project root vafo PYTHONPATH
+        PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+        if str(PROJECT_ROOT) not in sys.path:
+                sys.path.insert(0, str(PROJECT_ROOT))
+
+        from config.substances import SUBSTANCES
+        from src.simulation.signal_models import(generate_cv, generate_dpv, generate_swv)
+        substance_name = "dopamine"
+        params = SUBSTANCES[substance_name]
+        concentration = 0.5
+        ph = 7.0
+        print()
+        print("=" *70)
+        print("FEATURE EXTRACTION TEST")
+        print("=" *70)
+
+        #CV
+        print("\n[CV]")
+        voltage_cv, current_cv = generate_cv(params=params, concentration = concentration, ph=ph, seed=42,)
+        features_cv = extract_feature(voltage_cv, current_cv,)
+        print_features(features_cv)
+
+        #DVP
+        print("\n[DVP]")
+        voltage_dvp, current_dvp = generate_dpv(params=params, concentration=concentration, ph=ph, seed=42,)
+        features_dvp = extract_feature(voltage_dvp, current_dvp,)
+        print_features(features_dvp)
+
+        #SWV
+        print("\n[SWV]")
+        voltage_swv, current_swv = generate_swv(params=params, concentration=concentration, ph=ph, seed=42,)
+        features_swv = extract_feature(voltage_swv, current_swv,)
+        print_features(features_swv)
+
+        #ARRAY TEST
+        feature_array = features_to_array(features_cv)
+        print("\nFeature array:")
+        print(feature_array)
+        print("\nNumber of features:", len(feature_array))
                 
