@@ -64,7 +64,7 @@ def generate_method_dataset(method):
         current_number = 0
         print()
         print("=" * 70)
-        print(f"GENERATING" {method} DATASET)
+        print(f"GENERATING {method} DATASET")
         print("=" *70)
         for substance_name in SUBSTANCES:
                 for concentration in CONCENTRATIONS:
@@ -72,7 +72,7 @@ def generate_method_dataset(method):
                                 for seed in SEEDS:
                                         current_number += 1
                                         row = generate_one_sample(substance_name=substance_name, concentration=concentration, ph=ph, method=method, seed=seed,)
-                                        row.append(row)
+                                        rows.append(row)
                                         if (current_number % 100 == 0 or current_number == total):
                                                 print(
                                                         f"[{current_number: 04d}/{total}]"
@@ -82,3 +82,59 @@ def generate_method_dataset(method):
                                                         f"seed={seed}"
                                                 )
         return pd.DataFrame(rows)
+
+# Save dataset
+def save_dataset(df, method):
+        method_dir = OUTPUT_DIR / method
+        method_dir.mkdir(parents=True, exist_ok=True,)
+        output_file=(method_dir / f"{method.lower()}_features.csv")
+        df.to_csv(output_file, index=False,)
+
+        print()
+        print(f"Saved: {output_file}")
+        print(f"Shape: {df.shape}")
+
+# Main
+def main():
+        print()
+        print("=" *70)
+        print("ELECTROCHEMICAL SYNTHETIC DATASET GENERATOR")
+        print("=" * 70)
+
+        print()
+        print("Concentrations:")
+        print(CONCENTRATIONS)
+
+        print()
+        print("pH:")
+        print(PH_VALUES)
+
+        print()
+        print("Seeds:")
+        print(PH_VALUES)
+
+        print()
+        print("Seeds:")
+        print(SEEDS)
+
+        print()
+        print("Methods:")
+        print(METHODS)
+
+# Generate each electrochemical method
+for method in METHODS:
+        df = generate_method_dataset(method)
+        save_dataset(df, method)
+
+        #Summary
+        print()
+        print("=" *70)
+        print("DATASET GENERATION COMPLETE")
+        print("=" *70)
+
+        print()
+        print(f"Output directory:\n{OUTPUT_DIR}")
+
+# ENTRY POINT
+if __name__ == "__main__":
+        main()
