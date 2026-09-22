@@ -1,4 +1,5 @@
 import sys
+import numpy as np
 from pathlib import Path
 import pandas as pd
 
@@ -48,7 +49,7 @@ def generate_one_sample(substance_name, concentration, ph, method, seed,):
         row = {
                 "substance": substance_name,
                 "concentration": concentration,
-                "ph": ph,
+                "pH": ph,
                 "method": method,
                 "seed": seed,
         }
@@ -56,23 +57,25 @@ def generate_one_sample(substance_name, concentration, ph, method, seed,):
         # Add 15 features
         for features_name in FEATURE_NAME:
                 row[features_name] = features[features_name]
-        return row
+        return row, voltage, current
 
 def generate_method_dataset(method):
         rows = []
+        voltage_signals = []
+        current_signals = []
         total = (len(SUBSTANCES) * len(CONCENTRATIONS) * len(PH_VALUES) * len(SEEDS))
         current_number = 0
         print()
-        print("=" * 70)
         print(f"GENERATING {method} DATASET")
-        print("=" *70)
         for substance_name in SUBSTANCES:
                 for concentration in CONCENTRATIONS:
                         for ph in PH_VALUES:
                                 for seed in SEEDS:
                                         current_number += 1
-                                        row = generate_one_sample(substance_name=substance_name, concentration=concentration, ph=ph, method=method, seed=seed,)
+                                        (row, voltage, current) = generate_one_sample(substance_name=substance_name, concentration=concentration, ph=ph, method=method, seed=seed,)
                                         rows.append(row)
+                                        voltage_signals.append(voltage)
+                                        current_signals.append(current)
                                         if (current_number % 100 == 0 or current_number == total):
                                                 print(
                                                         f"[{current_number: 04d}/{total}]"
@@ -81,59 +84,77 @@ def generate_method_dataset(method):
                                                         f"pH={ph:<3}"
                                                         f"seed={seed}"
                                                 )
-        return pd.DataFrame(rows)
+        voltage_signals = np.asarray(voltage_signals, dtype=np.float32,)
+        current_signals = np.asarray(current_signals, dtype=np.float32,)
+        df = pd.DataFrame(rows)
+        print()
+        print(f"Feature dataframe shape: {df.shape}")
+        print(f"Curent signal shape:"
+              f"{current_signals.shape}")
+        if len(df) != len(voltage_signals):
+                raise ValueError("Number of feature rows and signals do not match!")
+        if len(df) != len(current_signals):
+                raise ValueError("Number of feature rows and signals do not match!")
+        if not np.all(np.isfinite(voltage_signals)):
+                raise ValueError("Voltage contains NaN or Inf!")
+        if not np.all(np.isfinite(current_signals)):
+                raise ValueError("Current contains NaN or Inf")
+        return (df, voltage_signals, current_signals,)
 
 # Save dataset
-def save_dataset(df, method):
+def save_dataset(df, voltage_signals, current_signals, method,):
         method_dir = OUTPUT_DIR / method
         method_dir.mkdir(parents=True, exist_ok=True,)
-        output_file=(method_dir / f"{method.lower()}_features.csv")
-        df.to_csv(output_file, index=False,)
+        feature_file=(method_dir / f"{method.lower()}_features.csv")
+        df.to_csv(feature_file, index=False,)
+        signal_file = (method_dir / f"{method.lower()}_signals.npz")
+        np.savez_compressed(signal_file, voltage=voltage_signals, current=current_signals,)
 
         print()
-        print(f"Saved: {output_file}")
-        print(f"Shape: {df.shape}")
+        print(f"Saved features: "
+                f"{feature_file}")
+        print(f"Saved signals: "
+                f"{signal_file}")
+        print(f"Feature shape: "
+                f"{df.shape}")
+        print(f"Voltage shape: "
+                f"{voltage_signals.shape}")
+        print(
+                f"Current shape: "
+                f"{current_signals.shape}")
 
 # Main
 def main():
         print()
-        print("=" *70)
         print("ELECTROCHEMICAL SYNTHETIC DATASET GENERATOR")
-        print("=" * 70)
-
+        print()
+        print("Substances:")
+        print(list(SUBSTANCES.keys()))
         print()
         print("Concentrations:")
         print(CONCENTRATIONS)
-
         print()
         print("pH:")
         print(PH_VALUES)
-
-        print()
-        print("Seeds:")
-        print(PH_VALUES)
-
         print()
         print("Seeds:")
         print(SEEDS)
-
         print()
         print("Methods:")
         print(METHODS)
 
-# Generate each electrochemical method
-for method in METHODS:
-        df = generate_method_dataset(method)
-        save_dataset(df, method)
+        # Generate each method
+        for method in METHODS:
+                (df, voltage_signals, current_signals,) = generate_method_dataset(method)
+                save_dataset(df, voltage_signals, current_signals, method,)
 
-        #Summary
+        # Complete
         print()
-        print("=" *70)
+        print("=" * 70)
         print("DATASET GENERATION COMPLETE")
-        print("=" *70)
-
         print()
-        print(f"Output directory:\n{OUTPUT_DIR}")
+        print(f"Output directory:\n"
+        f"{OUTPUT_DIR}")
 
 # ENTRY POINT
 if __name__ == "__main__":
