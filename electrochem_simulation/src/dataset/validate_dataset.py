@@ -13,7 +13,7 @@ DATASET_DIR = PROJECT_ROOT / "data" / "simulated"
 METHODS = ["CV", "DVP", "SWV",]
 
 # EXPECTED COLUMNS
-METADATA_COLUMNS = ["substance", "concentration", "ph", "method", "seed",]
+METADATA_COLUMNS = ["substance", "concentration", "pH", "method", "seed",]
 FEATURE_COLUMNS = [ "meanCurrent", "stdCurrent", "maxCurrent", "minCurrent", "meanVoltage", "voltageRange", "meanGradient", "maxGradient", "minGradient", "peakCurrent", "peakPotential", "peakWidth", "peakArea", "peakProminence", "peakSymmetry",]
 EXPECTED_COLUMNS = (METADATA_COLUMNS+ FEATURE_COLUMNS)
 
